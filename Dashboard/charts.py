@@ -20,17 +20,21 @@ GRID = "#e1e0d9"
 INK = "#0b0b0b"
 SURFACE = "#fcfcfb"
 
-BASE_LAYOUT = dict(
-    paper_bgcolor=SURFACE,
-    plot_bgcolor=SURFACE,
-    font=dict(color=INK, family="system-ui, -apple-system, Segoe UI, sans-serif"),
-    margin=dict(l=50, r=20, t=50, b=40),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0,
-                bgcolor="rgba(0,0,0,0)"),
-    xaxis=dict(gridcolor=GRID, linecolor=GRID, tickfont=dict(color=MUTED)),
-    yaxis=dict(gridcolor=GRID, linecolor=GRID, tickfont=dict(color=MUTED),
-               tickformat=",.0f"),
-)
+
+def _layout(title):
+    return dict(
+        title=dict(text=title, x=0.01, xanchor="left", y=0.97, yanchor="top",
+                   font=dict(size=15)),
+        paper_bgcolor=SURFACE,
+        plot_bgcolor=SURFACE,
+        font=dict(color=INK, family="system-ui, -apple-system, Segoe UI, sans-serif"),
+        margin=dict(l=50, r=20, t=50, b=100),
+        legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="left", x=0,
+                    bgcolor="rgba(0,0,0,0)"),
+        xaxis=dict(gridcolor=GRID, linecolor=GRID, tickfont=dict(color=MUTED)),
+        yaxis=dict(gridcolor=GRID, linecolor=GRID, tickfont=dict(color=MUTED),
+                   tickformat=",.0f"),
+    )
 
 
 def _recent_year_cols(year_cols, n=6):
@@ -52,12 +56,12 @@ def monthly_comparison(df_wide, year_cols, title="Monthly Comparison"):
         fig.add_trace(go.Scatter(
             x=periods, y=df_wide[yr],
             mode="lines+markers" if is_last else "lines",
-            name=yr,
+            name=yr, connectgaps=True,
             line=dict(width=3 if is_last else 2,
                        color=palette_cycle[i % len(palette_cycle)]),
             marker=dict(size=7) if is_last else dict(size=0),
         ))
-    fig.update_layout(title=title, **BASE_LAYOUT)
+    fig.update_layout(**_layout(title))
     return fig
 
 
@@ -72,11 +76,11 @@ def cumulative_forecast(df_wide, year_cols, title="Cumulative (to date)"):
         fig.add_trace(go.Scatter(
             x=periods, y=cum[yr],
             mode="lines",
-            name=yr,
+            name=yr, connectgaps=True,
             line=dict(width=3 if is_last else 2,
                        color=palette_cycle[i % len(palette_cycle)]),
         ))
-    fig.update_layout(title=title, **BASE_LAYOUT)
+    fig.update_layout(**_layout(title))
     return fig
 
 
@@ -90,17 +94,17 @@ def min_max_avg(df_wide, year_cols, title="Current vs Min / Max / Avg"):
     avg = hist.mean(axis=1, skipna=True)
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=periods, y=lo, name="Min", mode="lines",
+    fig.add_trace(go.Scatter(x=periods, y=lo, name="Min", mode="lines", connectgaps=True,
                               line=dict(width=2, color=SERIES["orange"], dash="dot")))
-    fig.add_trace(go.Scatter(x=periods, y=hi, name="Max", mode="lines",
+    fig.add_trace(go.Scatter(x=periods, y=hi, name="Max", mode="lines", connectgaps=True,
                               line=dict(width=2, color=SERIES["green"])))
-    fig.add_trace(go.Scatter(x=periods, y=avg, name="Average", mode="lines",
+    fig.add_trace(go.Scatter(x=periods, y=avg, name="Average", mode="lines", connectgaps=True,
                               line=dict(width=2, color=MUTED, dash="dash")))
     fig.add_trace(go.Scatter(x=periods, y=df_wide[current_year], name=current_year,
-                              mode="lines+markers",
+                              mode="lines+markers", connectgaps=True,
                               line=dict(width=3, color=INK),
                               marker=dict(size=7, symbol="diamond")))
-    fig.update_layout(title=title, **BASE_LAYOUT)
+    fig.update_layout(**_layout(title))
     return fig
 
 
@@ -142,8 +146,6 @@ def ytd_comparison(df_wide, year_cols, title="YTD Comparison"):
         textfont=dict(color=colors),
         name=f"Upto {period_label}",
     ))
-    layout = dict(BASE_LAYOUT)
-    layout["yaxis"] = dict(gridcolor=GRID, linecolor=GRID, tickfont=dict(color=MUTED),
-                            tickformat=",.0f")
-    fig.update_layout(title=f"{title} (Upto {period_label})", showlegend=False, **layout)
+    layout = _layout(f"{title} (Upto {period_label})")
+    fig.update_layout(showlegend=False, **layout)
     return fig
