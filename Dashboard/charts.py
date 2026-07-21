@@ -13,12 +13,12 @@ SERIES = {
     "violet": "#9085e9",
     "red": "#e66767",
 }
-GOOD = "#0ca30c"
+GOOD = "#006300"
 CRITICAL = "#d03b3b"
 MUTED = "#898781"
-GRID = "#2c2c2a"
-INK = "#ffffff"
-SURFACE = "#1a1a19"
+GRID = "#e1e0d9"
+INK = "#0b0b0b"
+SURFACE = "#fcfcfb"
 
 BASE_LAYOUT = dict(
     paper_bgcolor=SURFACE,

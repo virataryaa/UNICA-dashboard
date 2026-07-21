@@ -8,7 +8,7 @@ st.set_page_config(page_title="UNICA: Brazil", layout="wide")
 
 CSS = """
 <style>
-.stApp { background-color: #0d0d0d; }
+.stApp { background-color: #ffffff; }
 .unica-header {
     background-color: #0f766e;
     padding: 14px 24px;
@@ -19,17 +19,17 @@ CSS = """
     margin-bottom: 20px;
 }
 .unica-header h1 { color: white; font-size: 26px; margin: 0; }
-div[data-testid="stMetric"] { background-color: #1a1a19; }
+div[data-testid="stMetric"] { background-color: #f9f9f7; }
 .stButton>button {
-    background-color: #1a1a19;
-    color: white;
-    border: 1px solid #383835;
+    background-color: #f9f9f7;
+    color: #0b0b0b;
+    border: 1px solid #e1e0d9;
     width: 100%;
     padding: 10px;
 }
 .menu-btn button {
-    background-color: #1a1a19 !important;
-    border: 1px solid #383835 !important;
+    background-color: #f9f9f7 !important;
+    border: 1px solid #e1e0d9 !important;
 }
 </style>
 """
@@ -84,9 +84,12 @@ def render_dataset(name):
         st.plotly_chart(cumulative_forecast(df_wide, year_cols), use_container_width=True)
     with row1[2]:
         table, period_label = summary_table(df_wide, year_cols)
-        table_fmt = table.copy()
-        table_fmt.iloc[:, 1] = table_fmt.iloc[:, 1].map(lambda v: f"{v:,.0f}" if pd.notna(v) else "")
-        table_fmt["% Change"] = table_fmt["% Change"].map(lambda v: f"{v:+.0f}%" if pd.notna(v) else "")
+        value_col = table.columns[1]
+        table_fmt = pd.DataFrame({
+            "Year": table["Year"],
+            value_col: table[value_col].map(lambda v: f"{v:,.0f}" if pd.notna(v) else ""),
+            "% Change": table["% Change"].map(lambda v: f"{v:+.0f}%" if pd.notna(v) else ""),
+        })
         st.dataframe(table_fmt, hide_index=True, use_container_width=True)
 
     row2 = st.columns([1, 2, 1])
