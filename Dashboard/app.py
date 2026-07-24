@@ -3,7 +3,7 @@ import pandas as pd
 
 from data_loader import load_wide, year_columns, dataset_slice, dataset_registry
 from charts import monthly_comparison, cumulative_forecast, min_max_avg, summary_table, ytd_comparison
-from table_html import raw_table_html
+from table_html import raw_table_html, summary_table_html
 
 st.set_page_config(page_title="UNICA: Brazil", layout="wide")
 
@@ -86,7 +86,7 @@ def render_dataset(name):
         return
     year_cols = year_columns(df_wide)
 
-    PANEL_H = 260
+    PANEL_H = 330
     cols = st.columns([1, 2, 1])
     with cols[0]:
         st.plotly_chart(monthly_comparison(df_wide, year_cols, height=PANEL_H), use_container_width=True)
@@ -96,13 +96,7 @@ def render_dataset(name):
                          use_container_width=True)
     with cols[2]:
         table, period_label = summary_table(df_wide, year_cols)
-        value_col = table.columns[1]
-        table_fmt = pd.DataFrame({
-            "Year": table["Year"],
-            value_col: table[value_col].map(lambda v: f"{v:,.0f}" if pd.notna(v) else ""),
-            "% Change": table["% Change"].map(lambda v: f"{v:+.0f}%" if pd.notna(v) else ""),
-        })
-        st.dataframe(table_fmt, hide_index=True, use_container_width=True, height=PANEL_H)
+        st.markdown(summary_table_html(table, period_label), unsafe_allow_html=True)
         st.plotly_chart(ytd_comparison(df_wide, year_cols, height=PANEL_H), use_container_width=True)
 
     st.markdown(
