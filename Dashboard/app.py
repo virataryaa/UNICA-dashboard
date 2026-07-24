@@ -10,6 +10,7 @@ st.set_page_config(page_title="UNICA: Brazil", layout="wide")
 CSS = """
 <style>
 .stApp { background-color: #ffffff; }
+.block-container { max-width: 1500px; padding-top: 1.5rem; }
 .unica-header {
     background-color: #0f766e;
     padding: 14px 24px;
@@ -85,7 +86,7 @@ def render_dataset(name):
         return
     year_cols = year_columns(df_wide)
 
-    PANEL_H = 380
+    PANEL_H = 260
     cols = st.columns([1, 2, 1])
     with cols[0]:
         st.plotly_chart(monthly_comparison(df_wide, year_cols, height=PANEL_H), use_container_width=True)

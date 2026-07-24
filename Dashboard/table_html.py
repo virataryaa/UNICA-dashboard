@@ -21,12 +21,12 @@ def _bar_cell(pct, scale=50):
     color = CRITICAL if pct < 0 else GOOD
     width = max(4, min(abs(pct) / scale * 100, 100))
     return (
-        '<div style="position:relative;height:20px;background:#f2f1ee;'
+        '<div style="position:relative;height:16px;background:#f2f1ee;'
         'border-radius:3px;overflow:hidden;">'
         f'<div style="position:absolute;top:0;left:0;height:100%;width:{width:.0f}%;'
         f'background:{color};opacity:0.28;"></div>'
-        f'<div style="position:relative;z-index:1;text-align:center;font-size:12px;'
-        f'line-height:20px;font-weight:600;color:{color};">{pct:+.2f}%</div>'
+        f'<div style="position:relative;z-index:1;text-align:center;font-size:10px;'
+        f'line-height:16px;font-weight:600;color:{color};">{pct:+.2f}%</div>'
         '</div>'
     )
 
@@ -75,17 +75,18 @@ def raw_table_html(df_wide, year_cols, title, unit=""):
     html = f"""
     <div class="unica-table-wrap">
     <style>
-    .unica-table-wrap {{ overflow-x: auto; margin: 24px 0; border: 1px solid {GRID}; border-radius: 6px; }}
-    .unica-table {{ border-collapse: collapse; width: 100%; font-size: 13px;
+    .unica-table-wrap {{ overflow-x: auto; margin: 16px 0; border: 1px solid {GRID}; border-radius: 6px;
+                          max-height: 480px; overflow-y: auto; }}
+    .unica-table {{ border-collapse: collapse; width: 100%; font-size: 11px;
                     font-family: system-ui, -apple-system, Segoe UI, sans-serif; }}
-    .unica-table caption {{ text-align: left; font-weight: 700; font-size: 15px;
-                             padding: 10px 12px; color: {INK}; }}
-    .unica-table th {{ background: #0f766e; color: white; padding: 8px 10px;
+    .unica-table caption {{ text-align: left; font-weight: 700; font-size: 13px;
+                             padding: 6px 10px; color: {INK}; }}
+    .unica-table th {{ background: #0f766e; color: white; padding: 4px 8px;
                         text-align: right; position: sticky; top: 0; white-space: nowrap; }}
     .unica-table th.period-col, .unica-table td.period-col {{ text-align: left; font-style: italic;
                         color: {MUTED}; white-space: nowrap; }}
-    .unica-table td {{ padding: 6px 10px; text-align: right; white-space: nowrap; }}
-    .unica-table td.bar-cell {{ min-width: 90px; padding: 3px 8px; }}
+    .unica-table td {{ padding: 3px 8px; text-align: right; white-space: nowrap; }}
+    .unica-table td.bar-cell {{ min-width: 70px; padding: 2px 6px; }}
     .unica-table tr.total-row td {{ font-weight: 700; border-top: 2px solid {INK}; }}
     </style>
     <table class="unica-table">
