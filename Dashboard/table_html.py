@@ -39,8 +39,7 @@ def _flatten(html):
 
 _STYLE = f"""
 <style>
-.unica-table-wrap {{ overflow-x: auto; margin: 16px 0; border: 1px solid {GRID}; border-radius: 6px;
-                      max-height: 480px; overflow-y: auto; }}
+.unica-table-wrap {{ overflow-x: auto; margin: 16px 0; border: 1px solid {GRID}; border-radius: 6px; }}
 .unica-table {{ border-collapse: collapse; width: 100%; font-size: 11px;
                 font-family: system-ui, -apple-system, Segoe UI, sans-serif; }}
 .unica-table caption {{ text-align: left; font-weight: 700; font-size: 13px;

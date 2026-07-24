@@ -10,7 +10,7 @@ st.set_page_config(page_title="UNICA: Brazil", layout="wide")
 CSS = """
 <style>
 .stApp { background-color: #ffffff; }
-.block-container { max-width: 1500px; padding-top: 1.5rem; }
+.block-container { max-width: 1500px; padding-top: 3.5rem; }
 .unica-header {
     background-color: #0f766e;
     padding: 14px 24px;
@@ -87,17 +87,20 @@ def render_dataset(name):
     year_cols = year_columns(df_wide)
 
     PANEL_H = 330
-    cols = st.columns([2, 2, 1.2])
+    cols = st.columns([1, 1])
     with cols[0]:
         st.plotly_chart(monthly_comparison(df_wide, year_cols, height=PANEL_H), use_container_width=True)
         st.plotly_chart(min_max_avg(df_wide, year_cols, height=PANEL_H), use_container_width=True)
     with cols[1]:
         st.plotly_chart(cumulative_forecast(df_wide, year_cols, height=2 * PANEL_H + 40),
                          use_container_width=True)
-    with cols[2]:
+
+    bottom_cols = st.columns([1, 1, 2])
+    with bottom_cols[0]:
         table, period_label = summary_table(df_wide, year_cols)
         st.markdown(summary_table_html(table, period_label), unsafe_allow_html=True)
-        st.plotly_chart(ytd_comparison(df_wide, year_cols, height=PANEL_H), use_container_width=True)
+    with bottom_cols[1]:
+        st.plotly_chart(ytd_comparison(df_wide, year_cols, height=280), use_container_width=True)
 
     st.markdown(
         raw_table_html(df_wide, year_cols, title=name, unit=UNITS.get(name, "")),
