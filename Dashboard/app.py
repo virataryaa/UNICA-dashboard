@@ -87,7 +87,7 @@ def render_dataset(name):
     year_cols = year_columns(df_wide)
 
     PANEL_H = 330
-    cols = st.columns([1, 2, 1])
+    cols = st.columns([2, 2, 1.2])
     with cols[0]:
         st.plotly_chart(monthly_comparison(df_wide, year_cols, height=PANEL_H), use_container_width=True)
         st.plotly_chart(min_max_avg(df_wide, year_cols, height=PANEL_H), use_container_width=True)

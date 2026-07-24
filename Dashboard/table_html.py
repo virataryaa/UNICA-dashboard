@@ -31,6 +31,12 @@ def _bar_cell(pct, scale=50):
     )
 
 
+def _flatten(html):
+    # st.markdown treats 4+ space indented lines as a code block, not HTML —
+    # strip leading whitespace per line so the tags actually render.
+    return "\n".join(line.strip() for line in html.strip().split("\n"))
+
+
 _STYLE = f"""
 <style>
 .unica-table-wrap {{ overflow-x: auto; margin: 16px 0; border: 1px solid {GRID}; border-radius: 6px;
@@ -71,7 +77,7 @@ def summary_table_html(table, period_label):
             f'<td class="bar-cell">{bar}</td></tr>'
         )
 
-    return f"""
+    return _flatten(f"""
     {_STYLE}
     <div class="unica-table-wrap">
     <table class="unica-table">
@@ -79,7 +85,7 @@ def summary_table_html(table, period_label):
       <tbody>{''.join(rows_html)}</tbody>
     </table>
     </div>
-    """
+    """)
 
 
 def raw_table_html(df_wide, year_cols, title, unit=""):
@@ -136,4 +142,4 @@ def raw_table_html(df_wide, year_cols, title, unit=""):
     </table>
     </div>
     """
-    return html
+    return _flatten(html)
