@@ -21,8 +21,8 @@ INK = "#0b0b0b"
 SURFACE = "#fcfcfb"
 
 
-def _layout(title):
-    return dict(
+def _layout(title, height=None):
+    layout = dict(
         title=dict(text=title, x=0.01, xanchor="left", y=0.97, yanchor="top",
                    font=dict(size=15)),
         paper_bgcolor=SURFACE,
@@ -35,6 +35,9 @@ def _layout(title):
         yaxis=dict(gridcolor=GRID, linecolor=GRID, tickfont=dict(color=MUTED),
                    tickformat=",.0f"),
     )
+    if height:
+        layout["height"] = height
+    return layout
 
 
 def _recent_year_cols(year_cols, n=6):
@@ -46,7 +49,7 @@ def _cumulative(df_wide, year_cols):
     return cum
 
 
-def monthly_comparison(df_wide, year_cols, title="Monthly Comparison"):
+def monthly_comparison(df_wide, year_cols, title="Monthly Comparison", height=None):
     periods = df_wide["Period"].tolist()
     shown_years = _recent_year_cols(year_cols, 6)
     palette_cycle = list(SERIES.values())
@@ -61,11 +64,11 @@ def monthly_comparison(df_wide, year_cols, title="Monthly Comparison"):
                        color=palette_cycle[i % len(palette_cycle)]),
             marker=dict(size=7) if is_last else dict(size=0),
         ))
-    fig.update_layout(**_layout(title))
+    fig.update_layout(**_layout(title, height))
     return fig
 
 
-def cumulative_forecast(df_wide, year_cols, title="Cumulative (to date)"):
+def cumulative_forecast(df_wide, year_cols, title="Cumulative (to date)", height=None):
     periods = df_wide["Period"].tolist()
     cum = _cumulative(df_wide, year_cols)
     shown_years = _recent_year_cols(year_cols, 7)
@@ -80,11 +83,11 @@ def cumulative_forecast(df_wide, year_cols, title="Cumulative (to date)"):
             line=dict(width=3 if is_last else 2,
                        color=palette_cycle[i % len(palette_cycle)]),
         ))
-    fig.update_layout(**_layout(title))
+    fig.update_layout(**_layout(title, height))
     return fig
 
 
-def min_max_avg(df_wide, year_cols, title="Current vs Min / Max / Avg"):
+def min_max_avg(df_wide, year_cols, title="Current vs Min / Max / Avg", height=None):
     periods = df_wide["Period"].tolist()
     current_year = year_cols[-1]
     history_years = [y for y in year_cols[:-1]]
@@ -104,7 +107,7 @@ def min_max_avg(df_wide, year_cols, title="Current vs Min / Max / Avg"):
                               mode="lines+markers", connectgaps=True,
                               line=dict(width=3, color=INK),
                               marker=dict(size=7, symbol="diamond")))
-    fig.update_layout(**_layout(title))
+    fig.update_layout(**_layout(title, height))
     return fig
 
 
@@ -133,7 +136,7 @@ def summary_table(df_wide, year_cols):
     return pd.DataFrame(rows), period_label
 
 
-def ytd_comparison(df_wide, year_cols, title="YTD Comparison"):
+def ytd_comparison(df_wide, year_cols, title="YTD Comparison", height=None):
     table, period_label = summary_table(df_wide, year_cols)
     colors = [CRITICAL if v < 0 else GOOD if pd.notna(v) else MUTED for v in table["% Change"]]
     text = [f"{v:+.0f}%" if pd.notna(v) else "" for v in table["% Change"]]
@@ -146,6 +149,6 @@ def ytd_comparison(df_wide, year_cols, title="YTD Comparison"):
         textfont=dict(color=colors),
         name=f"Upto {period_label}",
     ))
-    layout = _layout(f"{title} (Upto {period_label})")
+    layout = _layout(f"{title} (Upto {period_label})", height)
     fig.update_layout(showlegend=False, **layout)
     return fig

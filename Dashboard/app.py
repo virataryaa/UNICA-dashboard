@@ -3,6 +3,7 @@ import pandas as pd
 
 from data_loader import load_wide, year_columns, dataset_slice, dataset_registry
 from charts import monthly_comparison, cumulative_forecast, min_max_avg, summary_table, ytd_comparison
+from table_html import raw_table_html
 
 st.set_page_config(page_title="UNICA: Brazil", layout="wide")
 
@@ -48,6 +49,13 @@ MENU_ITEMS = [
     "Fuel Consumption", "Gasolina Consumption", "Hydrous Share",
 ]
 
+UNITS = {
+    "Sugarcane Crush": "MT",
+    "Sugar": "MT",
+    "Ethanol": "Litres",
+    "ATR": "MT",
+}
+
 
 def go_to(page):
     st.session_state.page = page
@@ -77,12 +85,15 @@ def render_dataset(name):
         return
     year_cols = year_columns(df_wide)
 
-    row1 = st.columns([1, 2, 1])
-    with row1[0]:
-        st.plotly_chart(monthly_comparison(df_wide, year_cols), use_container_width=True)
-    with row1[1]:
-        st.plotly_chart(cumulative_forecast(df_wide, year_cols), use_container_width=True)
-    with row1[2]:
+    PANEL_H = 380
+    cols = st.columns([1, 2, 1])
+    with cols[0]:
+        st.plotly_chart(monthly_comparison(df_wide, year_cols, height=PANEL_H), use_container_width=True)
+        st.plotly_chart(min_max_avg(df_wide, year_cols, height=PANEL_H), use_container_width=True)
+    with cols[1]:
+        st.plotly_chart(cumulative_forecast(df_wide, year_cols, height=2 * PANEL_H + 40),
+                         use_container_width=True)
+    with cols[2]:
         table, period_label = summary_table(df_wide, year_cols)
         value_col = table.columns[1]
         table_fmt = pd.DataFrame({
@@ -90,13 +101,13 @@ def render_dataset(name):
             value_col: table[value_col].map(lambda v: f"{v:,.0f}" if pd.notna(v) else ""),
             "% Change": table["% Change"].map(lambda v: f"{v:+.0f}%" if pd.notna(v) else ""),
         })
-        st.dataframe(table_fmt, hide_index=True, use_container_width=True)
+        st.dataframe(table_fmt, hide_index=True, use_container_width=True, height=PANEL_H)
+        st.plotly_chart(ytd_comparison(df_wide, year_cols, height=PANEL_H), use_container_width=True)
 
-    row2 = st.columns([1, 2, 1])
-    with row2[0]:
-        st.plotly_chart(min_max_avg(df_wide, year_cols), use_container_width=True)
-    with row2[2]:
-        st.plotly_chart(ytd_comparison(df_wide, year_cols), use_container_width=True)
+    st.markdown(
+        raw_table_html(df_wide, year_cols, title=name, unit=UNITS.get(name, "")),
+        unsafe_allow_html=True,
+    )
 
 
 if st.session_state.page == "menu":
