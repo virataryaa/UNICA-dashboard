@@ -44,19 +44,6 @@ def _recent_year_cols(year_cols, n=6):
     return year_cols[-n:]
 
 
-def _fade_colors(n, base_rgb=(30, 58, 95), lo=0.22, hi=0.75):
-    # Oldest shown year is faintest, most recent (pre-current) is strongest —
-    # keeps the eye drawn toward the current year's bold black line on top.
-    if n <= 0:
-        return []
-    if n == 1:
-        return [f"rgba({base_rgb[0]},{base_rgb[1]},{base_rgb[2]},{hi})"]
-    return [
-        f"rgba({base_rgb[0]},{base_rgb[1]},{base_rgb[2]},{lo + (hi - lo) * i / (n - 1):.2f})"
-        for i in range(n)
-    ]
-
-
 def _cumulative(df_wide, year_cols):
     cum = df_wide[year_cols].cumsum(skipna=True)
     return cum
@@ -65,7 +52,7 @@ def _cumulative(df_wide, year_cols):
 def monthly_comparison(df_wide, year_cols, title="Monthly Comparison", height=None):
     periods = df_wide["Period"].tolist()
     shown_years = _recent_year_cols(year_cols, 6)
-    fade = _fade_colors(len(shown_years) - 1)
+    palette_cycle = list(SERIES.values())
     fig = go.Figure()
     for i, yr in enumerate(shown_years):
         is_last = i == len(shown_years) - 1
@@ -74,7 +61,7 @@ def monthly_comparison(df_wide, year_cols, title="Monthly Comparison", height=No
             mode="lines+markers" if is_last else "lines",
             name=yr, connectgaps=True,
             line=dict(width=4 if is_last else 2,
-                       color=INK if is_last else fade[i]),
+                       color=INK if is_last else palette_cycle[i % len(palette_cycle)]),
             marker=dict(size=7, color=INK) if is_last else dict(size=0),
         ))
     fig.update_layout(**_layout(title, height))
@@ -85,7 +72,7 @@ def cumulative_forecast(df_wide, year_cols, title="Cumulative (to date)", height
     periods = df_wide["Period"].tolist()
     cum = _cumulative(df_wide, year_cols)
     shown_years = _recent_year_cols(year_cols, 7)
-    fade = _fade_colors(len(shown_years) - 1)
+    palette_cycle = list(SERIES.values())
     fig = go.Figure()
     for i, yr in enumerate(shown_years):
         is_last = i == len(shown_years) - 1
@@ -94,7 +81,7 @@ def cumulative_forecast(df_wide, year_cols, title="Cumulative (to date)", height
             mode="lines",
             name=yr, connectgaps=True,
             line=dict(width=4 if is_last else 2,
-                       color=INK if is_last else fade[i]),
+                       color=INK if is_last else palette_cycle[i % len(palette_cycle)]),
         ))
     fig.update_layout(**_layout(title, height))
     return fig
