@@ -1,7 +1,10 @@
+import os
+from datetime import datetime
+
 import streamlit as st
 import pandas as pd
 
-from data_loader import load_wide, year_columns, dataset_slice, dataset_registry
+from data_loader import load_wide, year_columns, dataset_slice, dataset_registry, DATA_PATH
 from charts import (monthly_comparison, cumulative_forecast,
                      min_max_avg, summary_table, ytd_comparison, overview_row)
 from table_html import raw_table_html, summary_table_html, overview_table_html
@@ -176,13 +179,6 @@ DERIVED = {
     "Gasolina Consumption": _compute_gasolina_consumption,
 }
 
-MENU_ITEMS = [
-    "Overview",
-    "Sugarcane Crush", "Sugar", "Ethanol", "ATR", "ATR Yield", "Sugar Mix",
-    "Ethanol Sales", "Hydrous (Int)", "Anhydrous (Int)",
-    "Fuel Consumption", "Gasolina Consumption", "Hydrous Share",
-]
-
 BIWEEKLY_DATASETS = ["Sugarcane Crush", "Sugar", "Ethanol", "ATR", "ATR Yield", "Sugar Mix"]
 MONTHLY_DATASETS = [
     "Ethanol Sales", "Hydrous (Int)", "Anhydrous (Int)",
@@ -202,15 +198,47 @@ def go_to(page):
     st.session_state.page = page
 
 
+def _latest_period_label(name):
+    df_wide, kind = _load_dataset(name)
+    if df_wide.empty:
+        return None
+    year_cols = year_columns(df_wide)
+    r = overview_row(df_wide, year_cols, kind)
+    return f"{r['period']} {year_cols[-1]}"
+
+
 def render_menu():
     left, center, right = st.columns([1, 2, 1])
     with center:
         st.markdown('<div class="unica-header"><h1>UNICA</h1></div>', unsafe_allow_html=True)
-        for item in MENU_ITEMS:
-            disabled = item not in available and item not in DERIVED and item != "Overview"
-            label = item if not disabled else f"{item} (coming soon)"
-            st.button(label, key=f"menu_{item}", disabled=disabled,
-                       on_click=go_to, args=(item,), use_container_width=True)
+
+        updated_str = datetime.fromtimestamp(os.path.getmtime(DATA_PATH)).strftime("%d %b %Y, %H:%M")
+        biweekly_latest = _latest_period_label(BIWEEKLY_DATASETS[0])
+        monthly_latest = _latest_period_label(MONTHLY_DATASETS[0])
+        st.markdown(
+            f'<div style="text-align:center;color:#898781;font-size:12px;margin:10px 0 18px;">'
+            f'Data last updated {updated_str} &nbsp;·&nbsp; '
+            f'Bi-Weekly through {biweekly_latest} &nbsp;·&nbsp; '
+            f'Monthly through {monthly_latest}</div>',
+            unsafe_allow_html=True,
+        )
+
+        st.button("Overview", key="menu_Overview", on_click=go_to, args=("Overview",),
+                   use_container_width=True)
+
+        col_left, col_right = st.columns(2)
+        with col_left:
+            for item in BIWEEKLY_DATASETS:
+                disabled = item not in available and item not in DERIVED
+                label = item if not disabled else f"{item} (coming soon)"
+                st.button(label, key=f"menu_{item}", disabled=disabled,
+                           on_click=go_to, args=(item,), use_container_width=True)
+        with col_right:
+            for item in MONTHLY_DATASETS:
+                disabled = item not in available and item not in DERIVED
+                label = item if not disabled else f"{item} (coming soon)"
+                st.button(label, key=f"menu_{item}", disabled=disabled,
+                           on_click=go_to, args=(item,), use_container_width=True)
 
 
 def render_overview():
