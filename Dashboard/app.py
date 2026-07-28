@@ -78,17 +78,29 @@ div[data-testid="stButton"] { margin-bottom: 6px; }
 /* Dataset page header: one full-width navy bar housing both the Back
    button and the title, via Streamlit's stable container-key CSS hook */
 .st-key-dataset_header {
-    position: relative;
     background: linear-gradient(135deg, #1e3a5f 0%, #0f2138 100%);
     padding: 13px 20px;
     border-radius: 10px;
     margin-bottom: 24px;
     box-shadow: 0 3px 10px rgba(15, 33, 56, 0.18);
 }
-/* The absolutely-positioned button leaves an empty flex slot behind —
-   zero out the vertical block's gap/margins so it doesn't stretch the bar. */
-.st-key-dataset_header [data-testid="stVerticalBlock"] { gap: 0 !important; }
-.st-key-dataset_header [data-testid="stVerticalBlock"] > div { margin: 0 !important; }
+/* Stack the Back button and the title in the SAME grid cell so the row
+   auto-sizes to whichever is taller — no absolute-positioning height guesswork. */
+.st-key-dataset_header [data-testid="stVerticalBlock"] {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 0 !important;
+}
+.st-key-dataset_header [data-testid="stVerticalBlock"] > div {
+    grid-row: 1;
+    grid-column: 1;
+    margin: 0 !important;
+    align-self: center;
+}
+.st-key-dataset_header div[data-testid="stButton"] {
+    justify-self: start;
+    z-index: 2;
+}
 .st-key-dataset_header h1 {
     color: white;
     font-size: 17px;
@@ -96,14 +108,6 @@ div[data-testid="stButton"] { margin-bottom: 6px; }
     letter-spacing: -0.01em;
     margin: 0;
     text-align: center;
-}
-.st-key-dataset_header div[data-testid="stButton"] {
-    position: absolute;
-    left: 20px;
-    top: 50%;
-    transform: translateY(-50%);
-    margin: 0;
-    z-index: 2;
 }
 .st-key-dataset_header button {
     background-color: transparent !important;
