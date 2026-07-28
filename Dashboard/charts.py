@@ -142,27 +142,38 @@ def summary_table(df_wide, year_cols, kind="flow"):
     return pd.DataFrame(rows), period_label
 
 
+def _pack_stats(series, current_year, prev_year, hist_years):
+    latest = series[current_year]
+    prev = series[prev_year]
+    avg = series[hist_years].mean(skipna=True)
+    yoy = (latest - prev) / prev * 100 if prev not in (0, None) and pd.notna(prev) else None
+    vs_avg = (latest - avg) / avg * 100 if avg not in (0, None) and pd.notna(avg) else None
+    return dict(latest=latest, prev=prev, yoy=yoy, vs_avg=vs_avg)
+
+
 def overview_row(df_wide, year_cols, kind="flow"):
+    """Returns both a standalone (single latest-period) reading and a
+    cumulative-to-date reading. For flow metrics, cumulative is a running
+    sum. For ratio metrics — which have no meaningful sum — cumulative is
+    the season-to-date average of the ratio (we don't store the underlying
+    numerator/denominator needed for a true cumulative ratio)."""
     idx = _current_period_index(df_wide, year_cols)
     period_label = df_wide.loc[idx, "Period"]
     current_year, prev_year = year_cols[-1], year_cols[-2]
     hist_years = year_cols[:-1]
 
-    if kind == "ratio":
-        row = df_wide.loc[idx]
-        latest = row[current_year]
-        prev = row[prev_year]
-        avg = row[hist_years].mean(skipna=True)
-    else:
+    standalone = df_wide.loc[idx, year_cols]
+    if kind == "flow":
         cum = _cumulative(df_wide, year_cols)
-        latest = cum.loc[idx, current_year]
-        prev = cum.loc[idx, prev_year]
-        avg = cum.loc[idx, hist_years].mean(skipna=True)
+        cumulative = cum.loc[idx, year_cols]
+    else:
+        cumulative = df_wide.loc[:idx, year_cols].mean(skipna=True)
 
-    yoy = (latest - prev) / prev * 100 if prev not in (0, None) and pd.notna(prev) else None
-    vs_avg = (latest - avg) / avg * 100 if avg not in (0, None) and pd.notna(avg) else None
-
-    return dict(period=period_label, latest=latest, prev=prev, yoy=yoy, vs_avg=vs_avg)
+    return dict(
+        period=period_label,
+        standalone=_pack_stats(standalone, current_year, prev_year, hist_years),
+        cumulative=_pack_stats(cumulative, current_year, prev_year, hist_years),
+    )
 
 
 def ytd_comparison(df_wide, year_cols, kind="flow", title=None, height=None):

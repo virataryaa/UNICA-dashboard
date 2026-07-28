@@ -222,7 +222,7 @@ def render_overview():
             st.markdown("<h1>Overview</h1>", unsafe_allow_html=True)
 
     def _build_rows(names):
-        rows = []
+        standalone_rows, cumulative_rows = [], []
         year_cols_ref = None
         for name in names:
             df_wide, kind = _load_dataset(name)
@@ -231,26 +231,32 @@ def render_overview():
             year_cols = year_columns(df_wide)
             year_cols_ref = year_cols
             r = overview_row(df_wide, year_cols, kind)
-            r["name"] = name
-            r["unit"] = UNITS.get(name, "")
-            rows.append(r)
-        return rows, year_cols_ref
+            unit = UNITS.get(name, "")
+            standalone_rows.append({**r["standalone"], "name": name, "unit": unit, "period": r["period"]})
+            cumulative_rows.append({**r["cumulative"], "name": name, "unit": unit, "period": r["period"]})
+        return standalone_rows, cumulative_rows, year_cols_ref
 
-    biweekly_rows, biweekly_years = _build_rows(BIWEEKLY_DATASETS)
-    if biweekly_rows:
-        st.markdown(
-            overview_table_html(biweekly_rows, "Bi-Weekly Products",
-                                 biweekly_years[-2], biweekly_years[-1]),
-            unsafe_allow_html=True,
-        )
+    def _render_group(group_label, names):
+        standalone_rows, cumulative_rows, year_cols_ref = _build_rows(names)
+        if not year_cols_ref:
+            return
+        prev_year, current_year = year_cols_ref[-2], year_cols_ref[-1]
+        left, right = st.columns(2)
+        with left:
+            st.markdown(
+                overview_table_html(standalone_rows, f"{group_label} Comparison",
+                                     prev_year, current_year),
+                unsafe_allow_html=True,
+            )
+        with right:
+            st.markdown(
+                overview_table_html(cumulative_rows, "Cumulative Comparison",
+                                     prev_year, current_year),
+                unsafe_allow_html=True,
+            )
 
-    monthly_rows, monthly_years = _build_rows(MONTHLY_DATASETS)
-    if monthly_rows:
-        st.markdown(
-            overview_table_html(monthly_rows, "Monthly Products",
-                                 monthly_years[-2], monthly_years[-1]),
-            unsafe_allow_html=True,
-        )
+    _render_group("Bi-Weekly", BIWEEKLY_DATASETS)
+    _render_group("Monthly", MONTHLY_DATASETS)
 
 
 def render_dataset(name):
