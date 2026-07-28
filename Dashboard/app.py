@@ -58,6 +58,7 @@ UNITS = {
     "Anhydrous (Int)": "Litres",
     "Fuel Consumption": "Litres",
     "Gasolina Consumption": "Litres",
+    "Hydrous Share": "%",
 }
 
 
