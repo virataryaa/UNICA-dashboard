@@ -97,24 +97,24 @@ def summary_table_html(table, period_label, unit=""):
 
 _OVERVIEW_STYLE = f"""
 <style>
-.unica-overview-wrap {{ margin: 20px 0; border: 1px solid {GRID}; border-radius: 12px;
-                         overflow: hidden; box-shadow: 0 1px 4px rgba(11,11,11,0.05); }}
-.unica-overview-title {{ font-size: 15px; font-weight: 700; color: {INK};
-                          padding: 16px 20px 12px; }}
-.unica-overview-table {{ border-collapse: collapse; width: 100%; font-size: 13px;
+.unica-overview-wrap {{ margin: 16px 0; border: 1px solid {GRID}; border-radius: 12px;
+                         overflow-x: auto; box-shadow: 0 1px 4px rgba(11,11,11,0.05); }}
+.unica-overview-title {{ font-size: 14px; font-weight: 700; color: {INK};
+                          padding: 14px 16px 10px; }}
+.unica-overview-table {{ border-collapse: collapse; width: 100%; font-size: 11px;
                           font-family: system-ui, -apple-system, Segoe UI, sans-serif; }}
-.unica-overview-table th {{ background: #0f766e; color: white; padding: 11px 18px;
-                             text-align: right; font-weight: 600; font-size: 11px;
-                             text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }}
+.unica-overview-table th {{ background: #1e3a5f; color: white; padding: 8px 12px;
+                             text-align: right; font-weight: 600; font-size: 10px;
+                             text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; }}
 .unica-overview-table th.product-col, .unica-overview-table td.product-col {{
     text-align: left; font-weight: 600; color: {INK}; }}
-.unica-overview-table td {{ padding: 13px 18px; text-align: right;
+.unica-overview-table td {{ padding: 9px 12px; text-align: right;
                              border-top: 1px solid #f1f0ed; white-space: nowrap; }}
 .unica-overview-table td.period-col {{ text-align: left; color: {MUTED};
-                                        font-style: italic; font-size: 12px; }}
-.unica-overview-table td.prev-col {{ color: {MUTED}; font-size: 12.5px; }}
-.unica-overview-table td.latest-col {{ color: {INK}; font-weight: 700; font-size: 14px; }}
-.unica-overview-table td.bar-cell {{ min-width: 120px; padding: 8px 18px; }}
+                                        font-style: italic; font-size: 10.5px; }}
+.unica-overview-table td.prev-col {{ color: {MUTED}; font-size: 11px; }}
+.unica-overview-table td.latest-col {{ color: {INK}; font-weight: 700; font-size: 12px; }}
+.unica-overview-table td.bar-cell {{ min-width: 90px; padding: 6px 12px; }}
 .unica-overview-table tbody tr:hover td {{ background: #fafaf8; }}
 </style>
 """
@@ -134,8 +134,8 @@ def overview_table_html(rows, title, prev_year, current_year):
             f'<tr><td class="product-col">{r["name"]}</td>'
             f'<td class="period-col">{r["period"]}</td>'
             f'<td class="prev-col">{prev_cell}</td><td class="latest-col">{latest_cell}</td>'
-            f'<td class="bar-cell">{_bar_cell(r["yoy"], height=20, font_size=11) if r["yoy"] is not None else ""}</td>'
-            f'<td class="bar-cell">{_bar_cell(r["vs_avg"], height=20, font_size=11) if r["vs_avg"] is not None else ""}</td>'
+            f'<td class="bar-cell">{_bar_cell(r["yoy"], height=16, font_size=9) if r["yoy"] is not None else ""}</td>'
+            f'<td class="bar-cell">{_bar_cell(r["vs_avg"], height=16, font_size=9) if r["vs_avg"] is not None else ""}</td>'
             '</tr>'
         )
 
