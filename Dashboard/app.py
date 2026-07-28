@@ -14,11 +14,12 @@ CSS = """
 .block-container { max-width: 1400px; padding-top: 3rem; }
 
 .unica-header {
-    background: linear-gradient(135deg, #0f766e 0%, #0c5b53 100%);
+    background: linear-gradient(135deg, #1e3a5f 0%, #0f2138 100%);
     padding: 18px 28px;
     border-radius: 14px;
     margin-bottom: 28px;
-    box-shadow: 0 4px 16px rgba(15, 118, 110, 0.16);
+    box-shadow: 0 4px 16px rgba(15, 33, 56, 0.2);
+    text-align: center;
 }
 .unica-header h1 {
     color: white;
@@ -170,7 +171,7 @@ def go_to(page):
 
 
 def render_menu():
-    st.markdown('<div class="unica-header"><h1>UNICA: Brazil</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="unica-header"><h1>UNICA</h1></div>', unsafe_allow_html=True)
     for item in MENU_ITEMS:
         disabled = item not in available and item not in DERIVED
         label = item if not disabled else f"{item} (coming soon)"
