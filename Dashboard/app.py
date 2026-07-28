@@ -31,16 +31,16 @@ CSS = """
 div[data-testid="stMetric"] { background-color: #f9f9f7; }
 
 /* Default (menu list) buttons: minimalist cards */
-div[data-testid="stButton"] { margin-bottom: 10px; }
+div[data-testid="stButton"] { margin-bottom: 6px; }
 .stButton>button {
     background-color: #f9f9f7;
     color: #0b0b0b;
     border: 1px solid #ececea;
-    border-radius: 12px;
+    border-radius: 10px;
     width: 100%;
-    padding: 16px 20px;
+    padding: 11px 18px;
     text-align: left;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 500;
     display: flex;
     justify-content: space-between;
@@ -172,12 +172,14 @@ def go_to(page):
 
 
 def render_menu():
-    st.markdown('<div class="unica-header"><h1>UNICA</h1></div>', unsafe_allow_html=True)
-    for item in MENU_ITEMS:
-        disabled = item not in available and item not in DERIVED
-        label = item if not disabled else f"{item} (coming soon)"
-        st.button(label, key=f"menu_{item}", disabled=disabled,
-                   on_click=go_to, args=(item,), use_container_width=True)
+    left, center, right = st.columns([1, 2, 1])
+    with center:
+        st.markdown('<div class="unica-header"><h1>UNICA</h1></div>', unsafe_allow_html=True)
+        for item in MENU_ITEMS:
+            disabled = item not in available and item not in DERIVED
+            label = item if not disabled else f"{item} (coming soon)"
+            st.button(label, key=f"menu_{item}", disabled=disabled,
+                       on_click=go_to, args=(item,), use_container_width=True)
 
 
 def render_dataset(name):
