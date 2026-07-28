@@ -75,16 +75,31 @@ div[data-testid="stButton"] { margin-bottom: 6px; }
 }
 .stButton>button:disabled::after { color: #e1e0d9; }
 
-/* Back pill: styled via Streamlit's stable container key, not sibling guessing */
-.st-key-back_btn button {
-    background-color: #f2f5f8 !important;
-    border: 1px solid #dbe3ea !important;
+/* Dataset page header: one full-width navy bar housing both the Back
+   button and the title, via Streamlit's stable container-key CSS hook */
+.st-key-dataset_header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #0f2138 100%);
+    padding: 8px 20px;
+    border-radius: 10px;
+    margin-bottom: 24px;
+    box-shadow: 0 3px 10px rgba(15, 33, 56, 0.18);
+}
+.st-key-dataset_header h1 {
+    color: white;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-align: center;
+}
+.st-key-dataset_header button {
+    background-color: transparent !important;
+    border: 1px solid rgba(255, 255, 255, 0.28) !important;
     border-radius: 999px !important;
-    color: #1e3a5f !important;
+    color: rgba(255, 255, 255, 0.92) !important;
     font-weight: 500;
     font-size: 13px;
-    padding: 8px 16px !important;
-    text-align: center;
+    padding: 6px 14px !important;
     width: auto !important;
     min-width: 0 !important;
     display: inline-flex !important;
@@ -92,11 +107,11 @@ div[data-testid="stButton"] { margin-bottom: 6px; }
     box-shadow: none !important;
     transform: none !important;
 }
-.st-key-back_btn button::after { content: none !important; }
-.st-key-back_btn button:hover {
-    background-color: #e6edf5 !important;
-    border-color: #1e3a5f !important;
-    color: #1e3a5f !important;
+.st-key-dataset_header button::after { content: none !important; }
+.st-key-dataset_header button:hover {
+    background-color: rgba(255, 255, 255, 0.12) !important;
+    border-color: rgba(255, 255, 255, 0.6) !important;
+    color: #ffffff !important;
     transform: none !important;
     box-shadow: none !important;
 }
@@ -183,12 +198,12 @@ def render_menu():
 
 
 def render_dataset(name):
-    col_back, col_title = st.columns([1, 7], vertical_alignment="center")
-    with col_back:
-        with st.container(key="back_btn"):
+    with st.container(key="dataset_header"):
+        col_back, col_title, col_spacer = st.columns([1, 5, 1], vertical_alignment="center")
+        with col_back:
             st.button("← Back", on_click=go_to, args=("menu",))
-    with col_title:
-        st.markdown(f'<div class="unica-header"><h1>{name}</h1></div>', unsafe_allow_html=True)
+        with col_title:
+            st.markdown(f"<h1>{name}</h1>", unsafe_allow_html=True)
 
     if name in DERIVED:
         df_wide = DERIVED[name]()
