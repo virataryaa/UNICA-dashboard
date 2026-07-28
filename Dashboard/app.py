@@ -242,7 +242,7 @@ def render_dataset(name):
         table, period_label = summary_table(df_wide, year_cols, kind)
         st.markdown(summary_table_html(table, period_label, unit), unsafe_allow_html=True)
     with bottom_cols[1]:
-        st.plotly_chart(ytd_comparison(df_wide, year_cols, kind=kind, height=280),
+        st.plotly_chart(ytd_comparison(df_wide, year_cols, kind=kind, height=PANEL_H),
                          use_container_width=True)
 
     st.markdown(
