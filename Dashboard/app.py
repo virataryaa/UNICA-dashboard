@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 
 from data_loader import load_wide, year_columns, dataset_slice, dataset_registry
-from charts import monthly_comparison, cumulative_forecast, min_max_avg, summary_table, ytd_comparison
+from charts import (monthly_comparison, cumulative_forecast, running_average,
+                     min_max_avg, summary_table, ytd_comparison)
 from table_html import raw_table_html, summary_table_html
 
 st.set_page_config(page_title="UNICA: Brazil", layout="wide")
@@ -42,20 +43,46 @@ if "page" not in st.session_state:
 
 df_wide_all = load_wide()
 registry = dataset_registry(df_wide_all)
+kind_by_dataset = dict(zip(registry["Dataset"], registry["Kind"]))
 available = set(registry["Dataset"])
-
-MENU_ITEMS = [
-    "Sugarcane Crush", "Sugar", "Ethanol", "ATR", "ATR / Cane", "Sugar Mix",
-    "Ethanol Sales (Monthly)", "Hydrous (Int)", "Anhydrous (Int)",
-    "Fuel Consumption", "Gasolina Consumption", "Hydrous Share",
-]
 
 UNITS = {
     "Sugarcane Crush": "MT",
     "Sugar": "MT",
     "Ethanol": "Litres",
     "ATR": "MT",
+    "ATR Yield": "kg/ton",
+    "Sugar Mix": "%",
+    "Ethanol Sales": "Litres",
+    "Hydrous (Int)": "Litres",
+    "Anhydrous (Int)": "Litres",
+    "Fuel Consumption": "Litres",
 }
+
+
+def _compute_fuel_consumption():
+    hyd = dataset_slice(df_wide_all, "Hydrous (Int)")
+    anh = dataset_slice(df_wide_all, "Anhydrous (Int)")
+    if hyd.empty or anh.empty:
+        return pd.DataFrame()
+    year_cols = year_columns(hyd)
+    out = hyd[["Period"]].copy()
+    out.insert(0, "Kind", "flow")
+    out.insert(0, "Dataset", "Fuel Consumption")
+    for y in year_cols:
+        out[y] = hyd[y] * 0.7 + anh[y] / 0.3
+    return out
+
+
+DERIVED = {
+    "Fuel Consumption": _compute_fuel_consumption,
+}
+
+MENU_ITEMS = [
+    "Sugarcane Crush", "Sugar", "Ethanol", "ATR", "ATR Yield", "Sugar Mix",
+    "Ethanol Sales", "Hydrous (Int)", "Anhydrous (Int)",
+    "Fuel Consumption", "Gasolina Consumption", "Hydrous Share",
+]
 
 
 def go_to(page):
@@ -65,7 +92,7 @@ def go_to(page):
 def render_menu():
     st.markdown('<div class="unica-header"><h1>UNICA: Brazil</h1></div>', unsafe_allow_html=True)
     for item in MENU_ITEMS:
-        disabled = item not in available
+        disabled = item not in available and item not in DERIVED
         label = item if not disabled else f"{item} (coming soon)"
         st.button(label, key=f"menu_{item}", disabled=disabled,
                    on_click=go_to, args=(item,), use_container_width=True)
@@ -80,11 +107,18 @@ def render_dataset(name):
     with col_menu:
         st.button("Menu", on_click=go_to, args=("menu",))
 
-    df_wide = dataset_slice(df_wide_all, name)
+    if name in DERIVED:
+        df_wide = DERIVED[name]()
+        kind = "flow"
+    else:
+        df_wide = dataset_slice(df_wide_all, name)
+        kind = kind_by_dataset.get(name, "flow")
+
     if df_wide.empty:
         st.info("No data loaded for this dataset yet.")
         return
     year_cols = year_columns(df_wide)
+    unit = UNITS.get(name, "")
 
     PANEL_H = 330
     cols = st.columns([1, 1])
@@ -92,18 +126,27 @@ def render_dataset(name):
         st.plotly_chart(monthly_comparison(df_wide, year_cols, height=PANEL_H), use_container_width=True)
         st.plotly_chart(min_max_avg(df_wide, year_cols, height=PANEL_H), use_container_width=True)
     with cols[1]:
-        st.plotly_chart(cumulative_forecast(df_wide, year_cols, height=2 * PANEL_H + 40),
-                         use_container_width=True)
+        if kind == "ratio":
+            st.plotly_chart(
+                running_average(df_wide, year_cols, height=2 * PANEL_H + 40),
+                use_container_width=True,
+            )
+        else:
+            st.plotly_chart(
+                cumulative_forecast(df_wide, year_cols, height=2 * PANEL_H + 40),
+                use_container_width=True,
+            )
 
     bottom_cols = st.columns([1, 1, 2])
     with bottom_cols[0]:
-        table, period_label = summary_table(df_wide, year_cols)
-        st.markdown(summary_table_html(table, period_label), unsafe_allow_html=True)
+        table, period_label = summary_table(df_wide, year_cols, kind)
+        st.markdown(summary_table_html(table, period_label, unit), unsafe_allow_html=True)
     with bottom_cols[1]:
-        st.plotly_chart(ytd_comparison(df_wide, year_cols, height=280), use_container_width=True)
+        st.plotly_chart(ytd_comparison(df_wide, year_cols, kind=kind, height=280),
+                         use_container_width=True)
 
     st.markdown(
-        raw_table_html(df_wide, year_cols, title=name, unit=UNITS.get(name, "")),
+        raw_table_html(df_wide, year_cols, title=name, unit=unit, kind=kind),
         unsafe_allow_html=True,
     )
 

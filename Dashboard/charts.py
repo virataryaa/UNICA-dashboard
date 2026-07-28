@@ -87,6 +87,25 @@ def cumulative_forecast(df_wide, year_cols, title="Cumulative (to date)", height
     return fig
 
 
+def running_average(df_wide, year_cols, title="Running Average (to date)", height=None):
+    periods = df_wide["Period"].tolist()
+    run_avg = df_wide[year_cols].expanding().mean()
+    shown_years = _recent_year_cols(year_cols, 7)
+    palette_cycle = list(SERIES.values())
+    fig = go.Figure()
+    for i, yr in enumerate(shown_years):
+        is_last = i == len(shown_years) - 1
+        fig.add_trace(go.Scatter(
+            x=periods, y=run_avg[yr],
+            mode="lines",
+            name=yr, connectgaps=True,
+            line=dict(width=3 if is_last else 2,
+                       color=palette_cycle[i % len(palette_cycle)]),
+        ))
+    fig.update_layout(**_layout(title, height))
+    return fig
+
+
 def min_max_avg(df_wide, year_cols, title="Current vs Min / Max / Avg", height=None):
     periods = df_wide["Period"].tolist()
     current_year = year_cols[-1]
@@ -119,36 +138,43 @@ def _current_period_index(df_wide, year_cols):
     return valid.index.max()
 
 
-def summary_table(df_wide, year_cols):
+def summary_table(df_wide, year_cols, kind="flow"):
     idx = _current_period_index(df_wide, year_cols)
     period_label = df_wide.loc[idx, "Period"]
-    cum = _cumulative(df_wide, year_cols)
-    values = cum.loc[idx, year_cols]
-    pct_change = values.pct_change() * 100
+    if kind == "ratio":
+        values = df_wide.loc[idx, year_cols]
+        col_label = str(period_label)
+    else:
+        cum = _cumulative(df_wide, year_cols)
+        values = cum.loc[idx, year_cols]
+        col_label = f"Upto {period_label}"
+    pct_change = values.pct_change(fill_method=None) * 100
 
     rows = []
     for yr in year_cols:
         rows.append({
             "Year": yr,
-            f"Upto {period_label}": values[yr],
+            col_label: values[yr],
             "% Change": pct_change[yr],
         })
     return pd.DataFrame(rows), period_label
 
 
-def ytd_comparison(df_wide, year_cols, title="YTD Comparison", height=None):
-    table, period_label = summary_table(df_wide, year_cols)
+def ytd_comparison(df_wide, year_cols, kind="flow", title=None, height=None):
+    table, period_label = summary_table(df_wide, year_cols, kind)
+    value_col = table.columns[1]
     colors = [CRITICAL if v < 0 else GOOD if pd.notna(v) else MUTED for v in table["% Change"]]
     text = [f"{v:+.0f}%" if pd.notna(v) else "" for v in table["% Change"]]
 
     fig = go.Figure()
     fig.add_trace(go.Bar(
-        x=table["Year"], y=table.iloc[:, 1],
+        x=table["Year"], y=table[value_col],
         marker_color=SERIES["blue"],
         text=text, textposition="outside",
         textfont=dict(color=colors),
-        name=f"Upto {period_label}",
+        name=value_col,
     ))
-    layout = _layout(f"{title} (Upto {period_label})", height)
+    base_title = title or ("YTD Comparison" if kind == "flow" else "Period Comparison")
+    layout = _layout(f"{base_title} ({value_col})", height)
     fig.update_layout(showlegend=False, **layout)
     return fig

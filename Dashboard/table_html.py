@@ -55,7 +55,15 @@ _STYLE = f"""
 """
 
 
-def summary_table_html(table, period_label):
+def _fmt(v, unit):
+    if unit == "%":
+        return f"{v:.1f}%"
+    if unit == "kg/ton":
+        return f"{v:.1f}"
+    return f"{v:,.0f}"
+
+
+def summary_table_html(table, period_label, unit=""):
     value_col = table.columns[1]
     values = table[value_col]
     vmin, vmax = values.min(), values.max()
@@ -69,7 +77,7 @@ def summary_table_html(table, period_label):
         else:
             t = (v - vmin) / span
             bg, txt = _green_shade(t)
-            val_cell = f'<td style="background:{bg};color:{txt};">{v:,.0f}</td>'
+            val_cell = f'<td style="background:{bg};color:{txt};">{_fmt(v, unit)}</td>'
         bar = _bar_cell(row["% Change"])
         rows_html.append(
             f'<tr><td class="period-col">{row["Year"]}</td>{val_cell}'
@@ -80,14 +88,14 @@ def summary_table_html(table, period_label):
     {_STYLE}
     <div class="unica-table-wrap">
     <table class="unica-table">
-      <thead><tr><th class="period-col">Year</th><th>Upto {period_label}</th><th>% Change</th></tr></thead>
+      <thead><tr><th class="period-col">Year</th><th>{value_col}</th><th>% Change</th></tr></thead>
       <tbody>{''.join(rows_html)}</tbody>
     </table>
     </div>
     """)
 
 
-def raw_table_html(df_wide, year_cols, title, unit=""):
+def raw_table_html(df_wide, year_cols, title, unit="", kind="flow"):
     body = df_wide[year_cols]
     vmin = body.min(numeric_only=True).min()
     vmax = body.max(numeric_only=True).max()
@@ -112,20 +120,26 @@ def raw_table_html(df_wide, year_cols, title, unit=""):
             t = (v - vmin) / span
             bg, txt = _green_shade(t)
             cells.append(
-                f'<td style="background:{bg};color:{txt};">{v:,.0f}</td>'
+                f'<td style="background:{bg};color:{txt};">{_fmt(v, unit)}</td>'
             )
         idx = row.name
         cells.append(f'<td class="bar-cell">{_bar_cell(yoy.loc[idx])}</td>')
         cells.append(f'<td class="bar-cell">{_bar_cell(chg_avg.loc[idx])}</td>')
         rows_html.append("<tr>" + "".join(cells) + "</tr>")
 
-    totals = []
+    summary_label = "Total" if kind == "flow" else "Average"
+    summaries = []
     for y in year_cols:
         col = df_wide[y]
         is_current_year = y == current_year
-        totals.append(None if (is_current_year and col.isna().any()) else col.sum(skipna=True))
-    total_cells = '<td class="period-col">Total</td>' + "".join(
-        f'<td>{v:,.0f}</td>' if v is not None else '<td></td>' for v in totals
+        if is_current_year and col.isna().any():
+            summaries.append(None)
+        elif kind == "flow":
+            summaries.append(col.sum(skipna=True))
+        else:
+            summaries.append(col.mean(skipna=True))
+    summary_cells = f'<td class="period-col">{summary_label}</td>' + "".join(
+        f'<td>{_fmt(v, unit)}</td>' if v is not None else '<td></td>' for v in summaries
     ) + '<td></td><td></td>'
 
     html = f"""
@@ -136,7 +150,7 @@ def raw_table_html(df_wide, year_cols, title, unit=""):
       <thead><tr><th class="period-col">Upto</th>{header_cells}<th>YoY</th><th>Chg w.r.t Avg</th></tr></thead>
       <tbody>
         {''.join(rows_html)}
-        <tr class="total-row">{total_cells}</tr>
+        <tr class="total-row">{summary_cells}</tr>
       </tbody>
     </table>
     </div>
