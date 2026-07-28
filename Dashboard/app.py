@@ -85,6 +85,10 @@ div[data-testid="stButton"] { margin-bottom: 6px; }
     margin-bottom: 24px;
     box-shadow: 0 3px 10px rgba(15, 33, 56, 0.18);
 }
+/* The absolutely-positioned button leaves an empty flex slot behind —
+   zero out the vertical block's gap/margins so it doesn't stretch the bar. */
+.st-key-dataset_header [data-testid="stVerticalBlock"] { gap: 0 !important; }
+.st-key-dataset_header [data-testid="stVerticalBlock"] > div { margin: 0 !important; }
 .st-key-dataset_header h1 {
     color: white;
     font-size: 17px;
