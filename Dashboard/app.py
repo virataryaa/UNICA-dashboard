@@ -78,8 +78,9 @@ div[data-testid="stButton"] { margin-bottom: 6px; }
 /* Dataset page header: one full-width navy bar housing both the Back
    button and the title, via Streamlit's stable container-key CSS hook */
 .st-key-dataset_header {
+    position: relative;
     background: linear-gradient(135deg, #1e3a5f 0%, #0f2138 100%);
-    padding: 8px 20px;
+    padding: 13px 20px;
     border-radius: 10px;
     margin-bottom: 24px;
     box-shadow: 0 3px 10px rgba(15, 33, 56, 0.18);
@@ -91,6 +92,14 @@ div[data-testid="stButton"] { margin-bottom: 6px; }
     letter-spacing: -0.01em;
     margin: 0;
     text-align: center;
+}
+.st-key-dataset_header div[data-testid="stButton"] {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0;
+    z-index: 2;
 }
 .st-key-dataset_header button {
     background-color: transparent !important;
@@ -199,11 +208,8 @@ def render_menu():
 
 def render_dataset(name):
     with st.container(key="dataset_header"):
-        col_back, col_title, col_spacer = st.columns([1, 5, 1], vertical_alignment="center")
-        with col_back:
-            st.button("← Back", on_click=go_to, args=("menu",))
-        with col_title:
-            st.markdown(f"<h1>{name}</h1>", unsafe_allow_html=True)
+        st.button("← Back", on_click=go_to, args=("menu",))
+        st.markdown(f"<h1>{name}</h1>", unsafe_allow_html=True)
 
     if name in DERIVED:
         df_wide = DERIVED[name]()
