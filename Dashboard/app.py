@@ -30,43 +30,72 @@ CSS = """
 
 div[data-testid="stMetric"] { background-color: #f9f9f7; }
 
-/* Default (menu list) buttons: clean flat rows, no boxy borders */
+/* Default (menu list) buttons: minimalist cards */
+div[data-testid="stButton"] { margin-bottom: 10px; }
 .stButton>button {
-    background-color: transparent;
+    background-color: #f9f9f7;
     color: #0b0b0b;
-    border: none;
-    border-bottom: 1px solid #ececea;
-    border-radius: 0;
+    border: 1px solid #ececea;
+    border-radius: 12px;
     width: 100%;
-    padding: 14px 6px;
+    padding: 16px 20px;
     text-align: left;
     font-size: 15px;
     font-weight: 500;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 1px 2px rgba(11, 11, 11, 0.02);
+    transition: transform 0.15s ease, box-shadow 0.15s ease,
+                border-color 0.15s ease, background-color 0.15s ease;
+}
+.stButton>button::after {
+    content: "→";
+    color: #c3c2b7;
+    font-weight: 400;
+    margin-left: 12px;
+    transition: transform 0.15s ease, color 0.15s ease;
 }
 .stButton>button:hover {
-    background-color: #f9f9f7;
+    background-color: #ffffff;
+    border-color: #0f766e;
     color: #0f766e;
-    border-bottom: 1px solid #ececea;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(15, 118, 110, 0.12);
+}
+.stButton>button:hover::after {
+    color: #0f766e;
+    transform: translateX(2px);
 }
 .stButton>button:disabled {
+    background-color: #fbfbfa;
     color: #c3c2b7;
-    border-bottom: 1px solid #ececea;
+    border-color: #f1f0ed;
+    box-shadow: none;
 }
+.stButton>button:disabled::after { color: #e1e0d9; }
 
 /* Back link: minimal ghost button, marked via the preceding .back-marker div */
 .back-marker + div[data-testid="stButton"] button {
     background-color: transparent;
     border: none;
+    border-radius: 6px;
     color: #52514e;
     font-weight: 500;
     font-size: 14px;
     padding: 6px 10px 6px 0;
     text-align: left;
     width: auto;
+    display: inline-block;
+    box-shadow: none;
+    transform: none;
 }
+.back-marker + div[data-testid="stButton"] button::after { content: none; }
 .back-marker + div[data-testid="stButton"] button:hover {
     color: #0f766e;
+    background-color: transparent;
+    transform: none;
+    box-shadow: none;
     background-color: transparent;
 }
 </style>
