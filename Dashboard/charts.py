@@ -60,9 +60,9 @@ def monthly_comparison(df_wide, year_cols, title="Monthly Comparison", height=No
             x=periods, y=df_wide[yr],
             mode="lines+markers" if is_last else "lines",
             name=yr, connectgaps=True,
-            line=dict(width=3 if is_last else 2,
-                       color=palette_cycle[i % len(palette_cycle)]),
-            marker=dict(size=7) if is_last else dict(size=0),
+            line=dict(width=4 if is_last else 2,
+                       color=INK if is_last else palette_cycle[i % len(palette_cycle)]),
+            marker=dict(size=7, color=INK) if is_last else dict(size=0),
         ))
     fig.update_layout(**_layout(title, height))
     return fig
@@ -80,8 +80,8 @@ def cumulative_forecast(df_wide, year_cols, title="Cumulative (to date)", height
             x=periods, y=cum[yr],
             mode="lines",
             name=yr, connectgaps=True,
-            line=dict(width=3 if is_last else 2,
-                       color=palette_cycle[i % len(palette_cycle)]),
+            line=dict(width=4 if is_last else 2,
+                       color=INK if is_last else palette_cycle[i % len(palette_cycle)]),
         ))
     fig.update_layout(**_layout(title, height))
     return fig
