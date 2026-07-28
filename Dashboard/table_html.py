@@ -15,18 +15,18 @@ def _green_shade(t):
     return f"rgb({int(r)},{int(g)},{int(b)})", text
 
 
-def _bar_cell(pct, scale=50):
+def _bar_cell(pct, scale=50, height=16, font_size=10):
     if pd.isna(pct):
         return ""
     color = CRITICAL if pct < 0 else GOOD
     width = max(4, min(abs(pct) / scale * 100, 100))
     return (
-        '<div style="position:relative;height:16px;background:#f2f1ee;'
-        'border-radius:3px;overflow:hidden;">'
+        f'<div style="position:relative;height:{height}px;background:#f2f1ee;'
+        'border-radius:4px;overflow:hidden;">'
         f'<div style="position:absolute;top:0;left:0;height:100%;width:{width:.0f}%;'
         f'background:{color};opacity:0.28;"></div>'
-        f'<div style="position:relative;z-index:1;text-align:center;font-size:10px;'
-        f'line-height:16px;font-weight:600;color:{color};">{pct:+.2f}%</div>'
+        f'<div style="position:relative;z-index:1;text-align:center;font-size:{font_size}px;'
+        f'line-height:{height}px;font-weight:700;color:{color};">{pct:+.2f}%</div>'
         '</div>'
     )
 
@@ -95,9 +95,34 @@ def summary_table_html(table, period_label, unit=""):
     """)
 
 
+_OVERVIEW_STYLE = f"""
+<style>
+.unica-overview-wrap {{ margin: 20px 0; border: 1px solid {GRID}; border-radius: 12px;
+                         overflow: hidden; box-shadow: 0 1px 4px rgba(11,11,11,0.05); }}
+.unica-overview-title {{ font-size: 15px; font-weight: 700; color: {INK};
+                          padding: 16px 20px 12px; }}
+.unica-overview-table {{ border-collapse: collapse; width: 100%; font-size: 13px;
+                          font-family: system-ui, -apple-system, Segoe UI, sans-serif; }}
+.unica-overview-table th {{ background: #0f766e; color: white; padding: 11px 18px;
+                             text-align: right; font-weight: 600; font-size: 11px;
+                             text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }}
+.unica-overview-table th.product-col, .unica-overview-table td.product-col {{
+    text-align: left; font-weight: 600; color: {INK}; }}
+.unica-overview-table td {{ padding: 13px 18px; text-align: right;
+                             border-top: 1px solid #f1f0ed; white-space: nowrap; }}
+.unica-overview-table td.period-col {{ text-align: left; color: {MUTED};
+                                        font-style: italic; font-size: 12px; }}
+.unica-overview-table td.prev-col {{ color: {MUTED}; font-size: 12.5px; }}
+.unica-overview-table td.latest-col {{ color: {INK}; font-weight: 700; font-size: 14px; }}
+.unica-overview-table td.bar-cell {{ min-width: 120px; padding: 8px 18px; }}
+.unica-overview-table tbody tr:hover td {{ background: #fafaf8; }}
+</style>
+"""
+
+
 def overview_table_html(rows, title, prev_year, current_year):
     header = (
-        '<th class="period-col">Product</th><th class="period-col">Period</th>'
+        '<th class="product-col">Product</th><th class="period-col">Period</th>'
         f'<th>{prev_year}</th><th>{current_year}</th><th>YoY</th><th>vs 10yr Avg</th>'
     )
     rows_html = []
@@ -106,19 +131,19 @@ def overview_table_html(rows, title, prev_year, current_year):
         prev_cell = f'{_fmt(r["prev"], unit)}' if pd.notna(r["prev"]) else ""
         latest_cell = f'{_fmt(r["latest"], unit)}' if pd.notna(r["latest"]) else ""
         rows_html.append(
-            f'<tr><td class="period-col">{r["name"]}</td>'
+            f'<tr><td class="product-col">{r["name"]}</td>'
             f'<td class="period-col">{r["period"]}</td>'
-            f'<td>{prev_cell}</td><td>{latest_cell}</td>'
-            f'<td class="bar-cell">{_bar_cell(r["yoy"]) if r["yoy"] is not None else ""}</td>'
-            f'<td class="bar-cell">{_bar_cell(r["vs_avg"]) if r["vs_avg"] is not None else ""}</td>'
+            f'<td class="prev-col">{prev_cell}</td><td class="latest-col">{latest_cell}</td>'
+            f'<td class="bar-cell">{_bar_cell(r["yoy"], height=20, font_size=11) if r["yoy"] is not None else ""}</td>'
+            f'<td class="bar-cell">{_bar_cell(r["vs_avg"], height=20, font_size=11) if r["vs_avg"] is not None else ""}</td>'
             '</tr>'
         )
 
     return _flatten(f"""
-    {_STYLE}
-    <div class="unica-table-wrap">
-    <table class="unica-table">
-      <caption>{title}</caption>
+    {_OVERVIEW_STYLE}
+    <div class="unica-overview-wrap">
+    <div class="unica-overview-title">{title}</div>
+    <table class="unica-overview-table">
       <thead><tr>{header}</tr></thead>
       <tbody>{''.join(rows_html)}</tbody>
     </table>
