@@ -75,26 +75,28 @@ div[data-testid="stButton"] { margin-bottom: 10px; }
 }
 .stButton>button:disabled::after { color: #e1e0d9; }
 
-/* Back link: minimal ghost button, marked via the preceding .back-marker div */
-.back-marker + div[data-testid="stButton"] { margin-top: 4px; }
-.back-marker + div[data-testid="stButton"] button {
-    background-color: transparent !important;
-    border: none !important;
-    border-radius: 6px;
-    color: #52514e;
+/* Back pill: styled via Streamlit's stable container key, not sibling guessing */
+.st-key-back_btn button {
+    background-color: #f2f5f8 !important;
+    border: 1px solid #dbe3ea !important;
+    border-radius: 999px !important;
+    color: #1e3a5f !important;
     font-weight: 500;
-    font-size: 14px;
-    padding: 8px 10px 8px 0;
-    text-align: left;
-    width: auto;
-    display: inline-block !important;
+    font-size: 13px;
+    padding: 8px 16px !important;
+    text-align: center;
+    width: auto !important;
+    min-width: 0 !important;
+    display: inline-flex !important;
+    white-space: nowrap;
     box-shadow: none !important;
     transform: none !important;
 }
-.back-marker + div[data-testid="stButton"] button::after { content: none !important; }
-.back-marker + div[data-testid="stButton"] button:hover {
-    color: #0f766e;
-    background-color: transparent !important;
+.st-key-back_btn button::after { content: none !important; }
+.st-key-back_btn button:hover {
+    background-color: #e6edf5 !important;
+    border-color: #1e3a5f !important;
+    color: #1e3a5f !important;
     transform: none !important;
     box-shadow: none !important;
 }
@@ -179,10 +181,10 @@ def render_menu():
 
 
 def render_dataset(name):
-    col_back, col_title = st.columns([1, 7])
+    col_back, col_title = st.columns([1, 7], vertical_alignment="center")
     with col_back:
-        st.markdown('<div class="back-marker"></div>', unsafe_allow_html=True)
-        st.button("← Back to menu", on_click=go_to, args=("menu",))
+        with st.container(key="back_btn"):
+            st.button("← Back", on_click=go_to, args=("menu",))
     with col_title:
         st.markdown(f'<div class="unica-header"><h1>{name}</h1></div>', unsafe_allow_html=True)
 
