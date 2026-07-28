@@ -75,31 +75,15 @@ div[data-testid="stButton"] { margin-bottom: 6px; }
 }
 .stButton>button:disabled::after { color: #e1e0d9; }
 
-/* Dataset page header: one full-width navy bar housing both the Back
-   button and the title, via Streamlit's stable container-key CSS hook */
+/* Dataset page header: navy bar housing both the Back button and the
+   title, laid out with Streamlit's native column vertical-alignment
+   (reliable, no custom CSS layout hacks needed). */
 .st-key-dataset_header {
     background: linear-gradient(135deg, #1e3a5f 0%, #0f2138 100%);
     padding: 13px 20px;
     border-radius: 10px;
     margin-bottom: 24px;
     box-shadow: 0 3px 10px rgba(15, 33, 56, 0.18);
-}
-/* Stack the Back button and the title in the SAME grid cell so the row
-   auto-sizes to whichever is taller — no absolute-positioning height guesswork. */
-.st-key-dataset_header [data-testid="stVerticalBlock"] {
-    display: grid !important;
-    grid-template-columns: 1fr;
-    gap: 0 !important;
-}
-.st-key-dataset_header [data-testid="stVerticalBlock"] > div {
-    grid-row: 1;
-    grid-column: 1;
-    margin: 0 !important;
-    align-self: center;
-}
-.st-key-dataset_header div[data-testid="stButton"] {
-    justify-self: start;
-    z-index: 2;
 }
 .st-key-dataset_header h1 {
     color: white;
@@ -216,8 +200,11 @@ def render_menu():
 
 def render_dataset(name):
     with st.container(key="dataset_header"):
-        st.button("← Back", on_click=go_to, args=("menu",))
-        st.markdown(f"<h1>{name}</h1>", unsafe_allow_html=True)
+        col_back, col_title, col_spacer = st.columns([1, 5, 1], vertical_alignment="center")
+        with col_back:
+            st.button("← Back", on_click=go_to, args=("menu",))
+        with col_title:
+            st.markdown(f"<h1>{name}</h1>", unsafe_allow_html=True)
 
     if name in DERIVED:
         df_wide = DERIVED[name]()
