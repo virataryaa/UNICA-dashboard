@@ -57,6 +57,7 @@ UNITS = {
     "Hydrous (Int)": "Litres",
     "Anhydrous (Int)": "Litres",
     "Fuel Consumption": "Litres",
+    "Gasolina Consumption": "Litres",
 }
 
 
@@ -74,8 +75,22 @@ def _compute_fuel_consumption():
     return out
 
 
+def _compute_gasolina_consumption():
+    anh = dataset_slice(df_wide_all, "Anhydrous (Int)")
+    if anh.empty:
+        return pd.DataFrame()
+    year_cols = year_columns(anh)
+    out = anh[["Period"]].copy()
+    out.insert(0, "Kind", "flow")
+    out.insert(0, "Dataset", "Gasolina Consumption")
+    for y in year_cols:
+        out[y] = anh[y] / 0.27
+    return out
+
+
 DERIVED = {
     "Fuel Consumption": _compute_fuel_consumption,
+    "Gasolina Consumption": _compute_gasolina_consumption,
 }
 
 MENU_ITEMS = [
