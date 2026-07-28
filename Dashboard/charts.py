@@ -87,25 +87,6 @@ def cumulative_forecast(df_wide, year_cols, title="Cumulative (to date)", height
     return fig
 
 
-def running_average(df_wide, year_cols, title="Running Average (to date)", height=None):
-    periods = df_wide["Period"].tolist()
-    run_avg = df_wide[year_cols].expanding().mean()
-    shown_years = _recent_year_cols(year_cols, 7)
-    palette_cycle = list(SERIES.values())
-    fig = go.Figure()
-    for i, yr in enumerate(shown_years):
-        is_last = i == len(shown_years) - 1
-        fig.add_trace(go.Scatter(
-            x=periods, y=run_avg[yr],
-            mode="lines",
-            name=yr, connectgaps=True,
-            line=dict(width=3 if is_last else 2,
-                       color=palette_cycle[i % len(palette_cycle)]),
-        ))
-    fig.update_layout(**_layout(title, height))
-    return fig
-
-
 def min_max_avg(df_wide, year_cols, title="Current vs Min / Max / Avg", height=None):
     periods = df_wide["Period"].tolist()
     current_year = year_cols[-1]

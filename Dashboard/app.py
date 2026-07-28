@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 from data_loader import load_wide, year_columns, dataset_slice, dataset_registry
-from charts import (monthly_comparison, cumulative_forecast, running_average,
+from charts import (monthly_comparison, cumulative_forecast,
                      min_max_avg, summary_table, ytd_comparison)
 from table_html import raw_table_html, summary_table_html
 
@@ -137,17 +137,18 @@ def render_dataset(name):
     unit = UNITS.get(name, "")
 
     PANEL_H = 330
-    cols = st.columns([1, 1])
-    with cols[0]:
-        st.plotly_chart(monthly_comparison(df_wide, year_cols, height=PANEL_H), use_container_width=True)
-        st.plotly_chart(min_max_avg(df_wide, year_cols, height=PANEL_H), use_container_width=True)
-    with cols[1]:
-        if kind == "ratio":
-            st.plotly_chart(
-                running_average(df_wide, year_cols, height=2 * PANEL_H + 40),
-                use_container_width=True,
-            )
-        else:
+    if kind == "ratio":
+        cols = st.columns([1, 1])
+        with cols[0]:
+            st.plotly_chart(monthly_comparison(df_wide, year_cols, height=PANEL_H), use_container_width=True)
+        with cols[1]:
+            st.plotly_chart(min_max_avg(df_wide, year_cols, height=PANEL_H), use_container_width=True)
+    else:
+        cols = st.columns([1, 1])
+        with cols[0]:
+            st.plotly_chart(monthly_comparison(df_wide, year_cols, height=PANEL_H), use_container_width=True)
+            st.plotly_chart(min_max_avg(df_wide, year_cols, height=PANEL_H), use_container_width=True)
+        with cols[1]:
             st.plotly_chart(
                 cumulative_forecast(df_wide, year_cols, height=2 * PANEL_H + 40),
                 use_container_width=True,
