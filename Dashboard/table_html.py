@@ -95,6 +95,37 @@ def summary_table_html(table, period_label, unit=""):
     """)
 
 
+def overview_table_html(rows, title, prev_year, current_year):
+    header = (
+        '<th class="period-col">Product</th><th class="period-col">Period</th>'
+        f'<th>{prev_year}</th><th>{current_year}</th><th>YoY</th><th>vs 10yr Avg</th>'
+    )
+    rows_html = []
+    for r in rows:
+        unit = r.get("unit", "")
+        prev_cell = f'{_fmt(r["prev"], unit)}' if pd.notna(r["prev"]) else ""
+        latest_cell = f'{_fmt(r["latest"], unit)}' if pd.notna(r["latest"]) else ""
+        rows_html.append(
+            f'<tr><td class="period-col">{r["name"]}</td>'
+            f'<td class="period-col">{r["period"]}</td>'
+            f'<td>{prev_cell}</td><td>{latest_cell}</td>'
+            f'<td class="bar-cell">{_bar_cell(r["yoy"]) if r["yoy"] is not None else ""}</td>'
+            f'<td class="bar-cell">{_bar_cell(r["vs_avg"]) if r["vs_avg"] is not None else ""}</td>'
+            '</tr>'
+        )
+
+    return _flatten(f"""
+    {_STYLE}
+    <div class="unica-table-wrap">
+    <table class="unica-table">
+      <caption>{title}</caption>
+      <thead><tr>{header}</tr></thead>
+      <tbody>{''.join(rows_html)}</tbody>
+    </table>
+    </div>
+    """)
+
+
 def raw_table_html(df_wide, year_cols, title, unit="", kind="flow"):
     body = df_wide[year_cols]
     vmin = body.min(numeric_only=True).min()

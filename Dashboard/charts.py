@@ -142,6 +142,29 @@ def summary_table(df_wide, year_cols, kind="flow"):
     return pd.DataFrame(rows), period_label
 
 
+def overview_row(df_wide, year_cols, kind="flow"):
+    idx = _current_period_index(df_wide, year_cols)
+    period_label = df_wide.loc[idx, "Period"]
+    current_year, prev_year = year_cols[-1], year_cols[-2]
+    hist_years = year_cols[:-1]
+
+    if kind == "ratio":
+        row = df_wide.loc[idx]
+        latest = row[current_year]
+        prev = row[prev_year]
+        avg = row[hist_years].mean(skipna=True)
+    else:
+        cum = _cumulative(df_wide, year_cols)
+        latest = cum.loc[idx, current_year]
+        prev = cum.loc[idx, prev_year]
+        avg = cum.loc[idx, hist_years].mean(skipna=True)
+
+    yoy = (latest - prev) / prev * 100 if prev not in (0, None) and pd.notna(prev) else None
+    vs_avg = (latest - avg) / avg * 100 if avg not in (0, None) and pd.notna(avg) else None
+
+    return dict(period=period_label, latest=latest, prev=prev, yoy=yoy, vs_avg=vs_avg)
+
+
 def ytd_comparison(df_wide, year_cols, kind="flow", title=None, height=None):
     table, period_label = summary_table(df_wide, year_cols, kind)
     value_col = table.columns[1]

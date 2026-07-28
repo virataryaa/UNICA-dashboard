@@ -3,8 +3,8 @@ import pandas as pd
 
 from data_loader import load_wide, year_columns, dataset_slice, dataset_registry
 from charts import (monthly_comparison, cumulative_forecast,
-                     min_max_avg, summary_table, ytd_comparison)
-from table_html import raw_table_html, summary_table_html
+                     min_max_avg, summary_table, ytd_comparison, overview_row)
+from table_html import raw_table_html, summary_table_html, overview_table_html
 
 st.set_page_config(page_title="UNICA: Brazil", layout="wide")
 
@@ -177,10 +177,25 @@ DERIVED = {
 }
 
 MENU_ITEMS = [
+    "Overview",
     "Sugarcane Crush", "Sugar", "Ethanol", "ATR", "ATR Yield", "Sugar Mix",
     "Ethanol Sales", "Hydrous (Int)", "Anhydrous (Int)",
     "Fuel Consumption", "Gasolina Consumption", "Hydrous Share",
 ]
+
+BIWEEKLY_DATASETS = ["Sugarcane Crush", "Sugar", "Ethanol", "ATR", "ATR Yield", "Sugar Mix"]
+MONTHLY_DATASETS = [
+    "Ethanol Sales", "Hydrous (Int)", "Anhydrous (Int)",
+    "Fuel Consumption", "Gasolina Consumption", "Hydrous Share",
+]
+
+
+def _load_dataset(name):
+    if name in DERIVED:
+        return DERIVED[name](), "flow"
+    df_wide = dataset_slice(df_wide_all, name)
+    kind = kind_by_dataset.get(name, "flow")
+    return df_wide, kind
 
 
 def go_to(page):
@@ -192,10 +207,50 @@ def render_menu():
     with center:
         st.markdown('<div class="unica-header"><h1>UNICA</h1></div>', unsafe_allow_html=True)
         for item in MENU_ITEMS:
-            disabled = item not in available and item not in DERIVED
+            disabled = item not in available and item not in DERIVED and item != "Overview"
             label = item if not disabled else f"{item} (coming soon)"
             st.button(label, key=f"menu_{item}", disabled=disabled,
                        on_click=go_to, args=(item,), use_container_width=True)
+
+
+def render_overview():
+    with st.container(key="dataset_header"):
+        col_back, col_title, col_spacer = st.columns([1, 5, 1], vertical_alignment="center")
+        with col_back:
+            st.button("← Back", on_click=go_to, args=("menu",))
+        with col_title:
+            st.markdown("<h1>Overview</h1>", unsafe_allow_html=True)
+
+    def _build_rows(names):
+        rows = []
+        year_cols_ref = None
+        for name in names:
+            df_wide, kind = _load_dataset(name)
+            if df_wide.empty:
+                continue
+            year_cols = year_columns(df_wide)
+            year_cols_ref = year_cols
+            r = overview_row(df_wide, year_cols, kind)
+            r["name"] = name
+            r["unit"] = UNITS.get(name, "")
+            rows.append(r)
+        return rows, year_cols_ref
+
+    biweekly_rows, biweekly_years = _build_rows(BIWEEKLY_DATASETS)
+    if biweekly_rows:
+        st.markdown(
+            overview_table_html(biweekly_rows, "Bi-Weekly Products",
+                                 biweekly_years[-2], biweekly_years[-1]),
+            unsafe_allow_html=True,
+        )
+
+    monthly_rows, monthly_years = _build_rows(MONTHLY_DATASETS)
+    if monthly_rows:
+        st.markdown(
+            overview_table_html(monthly_rows, "Monthly Products",
+                                 monthly_years[-2], monthly_years[-1]),
+            unsafe_allow_html=True,
+        )
 
 
 def render_dataset(name):
@@ -206,12 +261,7 @@ def render_dataset(name):
         with col_title:
             st.markdown(f"<h1>{name}</h1>", unsafe_allow_html=True)
 
-    if name in DERIVED:
-        df_wide = DERIVED[name]()
-        kind = "flow"
-    else:
-        df_wide = dataset_slice(df_wide_all, name)
-        kind = kind_by_dataset.get(name, "flow")
+    df_wide, kind = _load_dataset(name)
 
     if df_wide.empty:
         st.info("No data loaded for this dataset yet.")
@@ -253,5 +303,7 @@ def render_dataset(name):
 
 if st.session_state.page == "menu":
     render_menu()
+elif st.session_state.page == "Overview":
+    render_overview()
 else:
     render_dataset(st.session_state.page)
