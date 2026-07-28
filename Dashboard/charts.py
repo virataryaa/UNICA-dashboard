@@ -19,6 +19,7 @@ MUTED = "#898781"
 GRID = "#e1e0d9"
 INK = "#0b0b0b"
 SURFACE = "#fcfcfb"
+NAVY_SOFT = "#3d5d85"
 
 
 def _layout(title, height=None):
@@ -147,10 +148,13 @@ def ytd_comparison(df_wide, year_cols, kind="flow", title=None, height=None):
     colors = [CRITICAL if v < 0 else GOOD if pd.notna(v) else MUTED for v in table["% Change"]]
     text = [f"{v:+.0f}%" if pd.notna(v) else "" for v in table["% Change"]]
 
+    n = len(table)
+    bar_colors = [NAVY_SOFT] * (n - 1) + [INK] if n else []
+
     fig = go.Figure()
     fig.add_trace(go.Bar(
         x=table["Year"], y=table[value_col],
-        marker_color=SERIES["blue"],
+        marker=dict(color=bar_colors, line=dict(color=SURFACE, width=1.5)),
         text=text, textposition="outside",
         textfont=dict(color=colors),
         name=value_col,

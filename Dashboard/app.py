@@ -237,7 +237,7 @@ def render_dataset(name):
                 use_container_width=True,
             )
 
-    bottom_cols = st.columns([1, 2])
+    bottom_cols = st.columns([1, 3])
     with bottom_cols[0]:
         table, period_label = summary_table(df_wide, year_cols, kind)
         st.markdown(summary_table_html(table, period_label, unit), unsafe_allow_html=True)
