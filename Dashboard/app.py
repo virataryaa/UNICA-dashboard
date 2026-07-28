@@ -15,15 +15,14 @@ CSS = """
 
 .unica-header {
     background: linear-gradient(135deg, #1e3a5f 0%, #0f2138 100%);
-    padding: 18px 28px;
-    border-radius: 14px;
-    margin-bottom: 28px;
-    box-shadow: 0 4px 16px rgba(15, 33, 56, 0.2);
+    padding: 11px 24px;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(15, 33, 56, 0.18);
     text-align: center;
 }
 .unica-header h1 {
     color: white;
-    font-size: 21px;
+    font-size: 17px;
     font-weight: 600;
     letter-spacing: -0.01em;
     margin: 0;
@@ -77,27 +76,27 @@ div[data-testid="stButton"] { margin-bottom: 10px; }
 .stButton>button:disabled::after { color: #e1e0d9; }
 
 /* Back link: minimal ghost button, marked via the preceding .back-marker div */
+.back-marker + div[data-testid="stButton"] { margin-top: 4px; }
 .back-marker + div[data-testid="stButton"] button {
-    background-color: transparent;
-    border: none;
+    background-color: transparent !important;
+    border: none !important;
     border-radius: 6px;
     color: #52514e;
     font-weight: 500;
     font-size: 14px;
-    padding: 6px 10px 6px 0;
+    padding: 8px 10px 8px 0;
     text-align: left;
     width: auto;
-    display: inline-block;
-    box-shadow: none;
-    transform: none;
+    display: inline-block !important;
+    box-shadow: none !important;
+    transform: none !important;
 }
-.back-marker + div[data-testid="stButton"] button::after { content: none; }
+.back-marker + div[data-testid="stButton"] button::after { content: none !important; }
 .back-marker + div[data-testid="stButton"] button:hover {
     color: #0f766e;
-    background-color: transparent;
-    transform: none;
-    box-shadow: none;
-    background-color: transparent;
+    background-color: transparent !important;
+    transform: none !important;
+    box-shadow: none !important;
 }
 </style>
 """
@@ -180,9 +179,12 @@ def render_menu():
 
 
 def render_dataset(name):
-    st.markdown('<div class="back-marker"></div>', unsafe_allow_html=True)
-    st.button("← Back to menu", on_click=go_to, args=("menu",))
-    st.markdown(f'<div class="unica-header"><h1>{name}</h1></div>', unsafe_allow_html=True)
+    col_back, col_title = st.columns([1, 7])
+    with col_back:
+        st.markdown('<div class="back-marker"></div>', unsafe_allow_html=True)
+        st.button("← Back to menu", on_click=go_to, args=("menu",))
+    with col_title:
+        st.markdown(f'<div class="unica-header"><h1>{name}</h1></div>', unsafe_allow_html=True)
 
     if name in DERIVED:
         df_wide = DERIVED[name]()
