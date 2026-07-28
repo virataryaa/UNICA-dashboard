@@ -11,28 +11,63 @@ st.set_page_config(page_title="UNICA: Brazil", layout="wide")
 CSS = """
 <style>
 .stApp { background-color: #ffffff; }
-.block-container { max-width: 1500px; padding-top: 3.5rem; }
+.block-container { max-width: 1400px; padding-top: 3rem; }
+
 .unica-header {
-    background-color: #0f766e;
-    padding: 14px 24px;
-    border-radius: 4px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
+    background: linear-gradient(135deg, #0f766e 0%, #0c5b53 100%);
+    padding: 18px 28px;
+    border-radius: 14px;
+    margin-bottom: 28px;
+    box-shadow: 0 4px 16px rgba(15, 118, 110, 0.16);
 }
-.unica-header h1 { color: white; font-size: 26px; margin: 0; }
+.unica-header h1 {
+    color: white;
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+}
+
 div[data-testid="stMetric"] { background-color: #f9f9f7; }
+
+/* Default (menu list) buttons: clean flat rows, no boxy borders */
 .stButton>button {
-    background-color: #f9f9f7;
+    background-color: transparent;
     color: #0b0b0b;
-    border: 1px solid #e1e0d9;
+    border: none;
+    border-bottom: 1px solid #ececea;
+    border-radius: 0;
     width: 100%;
-    padding: 10px;
+    padding: 14px 6px;
+    text-align: left;
+    font-size: 15px;
+    font-weight: 500;
+    transition: background-color 0.15s ease, color 0.15s ease;
 }
-.menu-btn button {
-    background-color: #f9f9f7 !important;
-    border: 1px solid #e1e0d9 !important;
+.stButton>button:hover {
+    background-color: #f9f9f7;
+    color: #0f766e;
+    border-bottom: 1px solid #ececea;
+}
+.stButton>button:disabled {
+    color: #c3c2b7;
+    border-bottom: 1px solid #ececea;
+}
+
+/* Back link: minimal ghost button, marked via the preceding .back-marker div */
+.back-marker + div[data-testid="stButton"] button {
+    background-color: transparent;
+    border: none;
+    color: #52514e;
+    font-weight: 500;
+    font-size: 14px;
+    padding: 6px 10px 6px 0;
+    text-align: left;
+    width: auto;
+}
+.back-marker + div[data-testid="stButton"] button:hover {
+    color: #0f766e;
+    background-color: transparent;
 }
 </style>
 """
@@ -115,13 +150,9 @@ def render_menu():
 
 
 def render_dataset(name):
-    col_back, col_title, col_menu = st.columns([1, 6, 1])
-    with col_back:
-        st.button("< Back", on_click=go_to, args=("menu",))
-    with col_title:
-        st.markdown(f'<div class="unica-header"><h1>{name}</h1></div>', unsafe_allow_html=True)
-    with col_menu:
-        st.button("Menu", on_click=go_to, args=("menu",))
+    st.markdown('<div class="back-marker"></div>', unsafe_allow_html=True)
+    st.button("← Back to menu", on_click=go_to, args=("menu",))
+    st.markdown(f'<div class="unica-header"><h1>{name}</h1></div>', unsafe_allow_html=True)
 
     if name in DERIVED:
         df_wide = DERIVED[name]()
