@@ -32,7 +32,8 @@ EXPECTED_DATASETS = {
     "Ethanol Sales": ("flow", MONTHLY_PERIODS),
     "Hydrous (Int)": ("flow", MONTHLY_PERIODS),
     "Anhydrous (Int)": ("flow", MONTHLY_PERIODS),
-    "Hydrous Share": ("ratio", MONTHLY_PERIODS),
+    # Fuel Consumption, Gasolina Consumption, Hydrous Share are derived
+    # on the fly by the dashboard from the datasets above — not stored here.
 }
 
 ID_COLS = ["Dataset", "Kind", "Period"]
