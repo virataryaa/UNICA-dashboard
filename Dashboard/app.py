@@ -431,7 +431,7 @@ def _render_projection_ui(df_wide, year_cols, unit):
         if method is None:
             method = "YTD Method"
 
-        pc1, pc2 = st.columns([1, 2])
+        pc1, pc2, pc3 = st.columns([1, 1, 3])
         if method == "YTD Method":
             with pc1:
                 default_yoy = default_ytd_yoy(df_wide, year_cols)
