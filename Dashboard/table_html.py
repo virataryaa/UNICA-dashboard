@@ -106,7 +106,8 @@ _OVERVIEW_STYLE = f"""
 .unica-overview-table th {{ background: #1e3a5f; color: white; padding: 8px 12px;
                              text-align: right; font-weight: 600; font-size: 10px;
                              text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; }}
-.unica-overview-table th.product-col, .unica-overview-table td.product-col {{
+.unica-overview-table th.product-col {{ text-align: left; }}
+.unica-overview-table td.product-col {{
     text-align: left; font-weight: 600; color: {INK}; }}
 .unica-overview-table td {{ padding: 9px 12px; text-align: right;
                              border-top: 1px solid #f1f0ed; white-space: nowrap; }}
