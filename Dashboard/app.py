@@ -6,7 +6,8 @@ import pandas as pd
 
 from data_loader import load_wide, year_columns, dataset_slice, dataset_registry, DATA_PATH
 from charts import (monthly_comparison, cumulative_forecast,
-                     min_max_avg, summary_table, ytd_comparison, overview_row)
+                     min_max_avg, summary_table, ytd_comparison, overview_row,
+                     cumulative_ratio_stats)
 from table_html import raw_table_html, summary_table_html, overview_table_html
 
 st.set_page_config(page_title="UNICA: Brazil", layout="wide")
@@ -307,6 +308,14 @@ def render_overview():
         sub = df_wide.loc[mask, "Period"]
         return sub.tolist(), dict(zip(sub.tolist(), sub.index.tolist()))
 
+    # For these ratios, "cumulative" is properly derived from the underlying
+    # flow components (cumulative numerator / cumulative denominator)
+    # instead of naively averaging the reported ratio period-to-period.
+    CUMULATIVE_RATIO_OVERRIDES = {
+        "ATR Yield": dict(numerator="ATR", denominator="Sugarcane Crush", scale=1000.0, denom_multiplier=1.0),
+        "Sugar Mix": dict(numerator="Sugar", denominator="ATR", scale=100.0, denom_multiplier=0.953),
+    }
+
     def _build_rows(names, period_idx):
         standalone_rows, cumulative_rows = [], []
         year_cols_ref = None
@@ -319,7 +328,18 @@ def render_overview():
             r = overview_row(df_wide, year_cols, kind, idx=period_idx)
             unit = UNITS.get(name, "")
             standalone_rows.append({**r["standalone"], "name": name, "unit": unit, "period": r["period"]})
-            cumulative_rows.append({**r["cumulative"], "name": name, "unit": unit, "period": r["period"]})
+
+            if name in CUMULATIVE_RATIO_OVERRIDES:
+                spec = CUMULATIVE_RATIO_OVERRIDES[name]
+                num_df, _ = _load_dataset(spec["numerator"])
+                den_df, _ = _load_dataset(spec["denominator"])
+                cum_stats = cumulative_ratio_stats(
+                    num_df, den_df, year_cols, period_idx,
+                    scale=spec["scale"], denom_multiplier=spec["denom_multiplier"],
+                )
+                cumulative_rows.append({**cum_stats, "name": name, "unit": unit, "period": r["period"]})
+            else:
+                cumulative_rows.append({**r["cumulative"], "name": name, "unit": unit, "period": r["period"]})
         return standalone_rows, cumulative_rows, year_cols_ref
 
     def _render_group(group_label, names, widget_key):

@@ -180,6 +180,20 @@ def overview_row(df_wide, year_cols, kind="flow", idx=None):
     )
 
 
+def cumulative_ratio_stats(numerator_df, denominator_df, year_cols, idx, scale=1.0, denom_multiplier=1.0):
+    """A properly volume-weighted cumulative ratio, derived from the
+    underlying flow components (e.g. cumulative ATR / cumulative Cane),
+    instead of averaging the ratio's own reported values period-to-period."""
+    current_year, prev_year = year_cols[-1], year_cols[-2]
+    hist_years = year_cols[:-1]
+
+    num_cum = _cumulative(numerator_df, year_cols).loc[idx, year_cols]
+    den_cum = _cumulative(denominator_df, year_cols).loc[idx, year_cols]
+    ratio = num_cum / (den_cum * denom_multiplier) * scale
+
+    return _pack_stats(ratio, current_year, prev_year, hist_years)
+
+
 def ytd_comparison(df_wide, year_cols, kind="flow", title=None, height=None):
     table, period_label = summary_table(df_wide, year_cols, kind)
     value_col = table.columns[1]
