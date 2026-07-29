@@ -174,9 +174,26 @@ def _compute_gasolina_consumption():
     return out
 
 
+def _compute_hydrous_share():
+    hyd = dataset_slice(df_wide_all, "Hydrous (Int)")
+    anh = dataset_slice(df_wide_all, "Anhydrous (Int)")
+    if hyd.empty or anh.empty:
+        return pd.DataFrame()
+    year_cols = year_columns(hyd)
+    out = hyd[["Period"]].copy()
+    out.insert(0, "Kind", "ratio")
+    out.insert(0, "Dataset", "Hydrous Share")
+    for y in year_cols:
+        fuel = hyd[y] * 0.7 + anh[y] / 0.3
+        out[y] = hyd[y] * 0.7 / fuel * 100
+    return out
+
+
+# name -> (compute_fn, kind)
 DERIVED = {
-    "Fuel Consumption": _compute_fuel_consumption,
-    "Gasolina Consumption": _compute_gasolina_consumption,
+    "Fuel Consumption": (_compute_fuel_consumption, "flow"),
+    "Gasolina Consumption": (_compute_gasolina_consumption, "flow"),
+    "Hydrous Share": (_compute_hydrous_share, "ratio"),
 }
 
 BIWEEKLY_DATASETS = ["Sugarcane Crush", "Sugar", "Ethanol", "ATR", "ATR Yield", "Sugar Mix"]
@@ -188,7 +205,8 @@ MONTHLY_DATASETS = [
 
 def _load_dataset(name):
     if name in DERIVED:
-        return DERIVED[name](), "flow"
+        compute_fn, kind = DERIVED[name]
+        return compute_fn(), kind
     df_wide = dataset_slice(df_wide_all, name)
     kind = kind_by_dataset.get(name, "flow")
     return df_wide, kind
