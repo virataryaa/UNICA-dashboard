@@ -124,8 +124,8 @@ div[data-testid="stButton"] { margin-bottom: 6px; }
 }
 .st-key-dataset_header button::after { content: none !important; }
 
-/* Overview period pills: small and muted grey, not eye-catching teal/navy */
-div[class*="_period_wrap"] button {
+/* Small muted pill bars (Overview period pickers, projection method picker) */
+div[class*="_period_wrap"] button, div[class*="_pillbar"] button {
     font-size: 12px !important;
     padding: 3px 12px !important;
     min-height: 0 !important;
@@ -133,16 +133,42 @@ div[class*="_period_wrap"] button {
     border-color: #e1e0d9 !important;
     background-color: #fbfbfa !important;
 }
-div[class*="_period_wrap"] button p {
+div[class*="_period_wrap"] button p, div[class*="_pillbar"] button p {
     font-size: 12px !important;
     color: inherit !important;
 }
 div[class*="_period_wrap"] button[aria-pressed="true"],
-div[class*="_period_wrap"] button[aria-checked="true"] {
+div[class*="_period_wrap"] button[aria-checked="true"],
+div[class*="_pillbar"] button[aria-pressed="true"],
+div[class*="_pillbar"] button[aria-checked="true"] {
     color: #52514e !important;
     border-color: #c3c2b7 !important;
     background-color: #f2f1ee !important;
     font-weight: 600;
+}
+
+/* Scenario Projection card: compact, boxed, small inputs */
+.st-key-sc_proj_card {
+    border: 1px solid #e1e0d9;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-top: 8px;
+    background-color: #fbfbfa;
+}
+.st-key-sc_proj_card [data-testid="stNumberInput"] label p {
+    font-size: 11px !important;
+    color: #898781 !important;
+}
+.st-key-sc_proj_card [data-testid="stNumberInput"] input {
+    font-size: 12px !important;
+    padding: 4px 8px !important;
+    height: 30px !important;
+}
+.st-key-sc_proj_card [data-testid="stNumberInput"] button {
+    height: 15px !important;
+}
+.st-key-sc_proj_card [data-testid="stCaptionContainer"] p {
+    font-size: 11px !important;
 }
 </style>
 """
@@ -382,61 +408,66 @@ def render_overview():
 def _render_projection_ui(df_wide, year_cols, unit):
     """Scenario Projection block: lets the user forecast the remaining
     periods of the current season using one of four methods, returning a
-    {period_label: projected_value} dict for the charts to extend with."""
+    {period_label: projected_value} dict for the charts to extend with.
+    Rendered compact, meant to sit below the charts it feeds."""
     rem = remaining_periods(df_wide, year_cols)
     if not rem:
         return None
 
     current_year = year_cols[-1]
-    st.markdown(
-        f'<div style="font-size:0.95rem;font-weight:600;color:#1e3a5f;margin:8px 0 4px;">'
-        f'Scenario Projection <span style="font-weight:400;color:#898781;">'
-        f'remaining periods of {current_year} ({rem[0]} – {rem[-1]})</span></div>',
-        unsafe_allow_html=True,
-    )
-    pc1, pc2 = st.columns([1, 2])
-    with pc1:
-        method = st.radio(
-            "Method", ["YTD Method", "Proportions", "Manual (per Period)", "Manual (Yearly)"],
-            horizontal=True, key="sc_proj_method", label_visibility="collapsed",
+    with st.container(key="sc_proj_card"):
+        st.markdown(
+            f'<div style="font-size:0.85rem;font-weight:600;color:#1e3a5f;margin:0 0 6px;">'
+            f'Scenario Projection <span style="font-weight:400;color:#898781;font-size:0.8rem;">'
+            f'&nbsp;remaining periods of {current_year} ({rem[0]} – {rem[-1]})</span></div>',
+            unsafe_allow_html=True,
         )
-    with pc2:
-        if method == "YTD Method":
-            default_yoy = default_ytd_yoy(df_wide, year_cols)
-            yoy_pct = st.number_input(
-                f"YoY % vs previous year (auto-filled from current YTD)",
-                value=float(default_yoy), step=0.5, format="%.1f", key="sc_proj_yoy",
+        with st.container(key="sc_proj_method_pillbar"):
+            method = st.pills(
+                "Method", ["YTD Method", "Proportions", "Manual (per Period)", "Manual (Yearly)"],
+                default="YTD Method", selection_mode="single",
+                key="sc_proj_method", label_visibility="collapsed",
             )
+        if method is None:
+            method = "YTD Method"
+
+        pc1, pc2 = st.columns([1, 2])
+        if method == "YTD Method":
+            with pc1:
+                default_yoy = default_ytd_yoy(df_wide, year_cols)
+                yoy_pct = st.number_input(
+                    "YoY % vs previous year", value=float(default_yoy), step=0.5,
+                    format="%.1f", key="sc_proj_yoy",
+                )
             proj_vals = project_ytd_method(df_wide, year_cols, yoy_pct)
 
         elif method == "Proportions":
             proj_vals, implied_total = project_proportions_method(df_wide, year_cols)
             if implied_total:
-                st.caption(
-                    f"Implied full-season total: {implied_total:,.0f} {unit} "
-                    f"(based on avg seasonal shape of recent complete years)"
-                )
+                with pc1:
+                    st.caption(f"Implied full-season total: {implied_total:,.0f} {unit}")
             else:
-                st.info("No complete historical years available for the proportions method.")
+                st.caption("No complete historical years available for this method.")
 
         elif method == "Manual (per Period)":
-            manual_val = st.number_input(
-                f"Value per remaining period ({unit})",
-                min_value=0.0, value=0.0, step=100000.0, key="sc_proj_manual",
-            )
+            with pc1:
+                manual_val = st.number_input(
+                    f"Value per remaining period ({unit})",
+                    min_value=0.0, value=0.0, step=100000.0, key="sc_proj_manual",
+                )
             proj_vals = project_manual_per_period(df_wide, year_cols, manual_val)
 
         else:  # Manual (Yearly)
             cy_ytd = df_wide[current_year].sum(skipna=True)
-            target = st.number_input(
-                f"Full season target ({unit})  [YTD actual: {cy_ytd:,.0f}]",
-                min_value=0.0, value=float(cy_ytd), step=1000000.0, format="%.0f",
-                key="sc_proj_yearly",
-                help="Remaining = target minus YTD actual, then split across "
-                     "remaining periods by historical seasonal shape.",
-            )
+            with pc1:
+                target = st.number_input(
+                    f"Full season target ({unit})",
+                    min_value=0.0, value=float(cy_ytd), step=1000000.0, format="%.0f",
+                    key="sc_proj_yearly",
+                )
             proj_vals, remaining_budget = project_manual_yearly(df_wide, year_cols, target)
-            st.caption(f"Remaining budget: {remaining_budget:,.0f} {unit}, allocated by seasonal shape")
+            with pc1:
+                st.caption(f"YTD actual: {cy_ytd:,.0f}  ·  Remaining budget: {remaining_budget:,.0f}")
 
     return proj_vals
 
@@ -457,10 +488,6 @@ def render_dataset(name):
     year_cols = year_columns(df_wide)
     unit = UNITS.get(name, "")
 
-    proj_vals = None
-    if name == "Sugarcane Crush":
-        proj_vals = _render_projection_ui(df_wide, year_cols, unit)
-
     PANEL_H = 330
     if kind == "ratio":
         cols = st.columns([1, 1])
@@ -469,15 +496,16 @@ def render_dataset(name):
         with cols[1]:
             st.plotly_chart(min_max_avg(df_wide, year_cols, height=PANEL_H), use_container_width=True)
     else:
+        # Reserve the chart slots now (so they render at the top of the
+        # page), fill them in after the projection controls further down
+        # have computed proj_vals — Streamlit fills placeholders wherever
+        # they were declared, regardless of when content is pushed to them.
         cols = st.columns([1, 1])
         with cols[0]:
-            st.plotly_chart(monthly_comparison(df_wide, year_cols, height=PANEL_H, proj_vals=proj_vals), use_container_width=True)
-            st.plotly_chart(min_max_avg(df_wide, year_cols, height=PANEL_H, proj_vals=proj_vals), use_container_width=True)
+            ph_monthly = st.empty()
+            ph_minmax = st.empty()
         with cols[1]:
-            st.plotly_chart(
-                cumulative_forecast(df_wide, year_cols, height=2 * PANEL_H + 40, proj_vals=proj_vals),
-                use_container_width=True,
-            )
+            ph_cumulative = st.empty()
 
     bottom_cols = st.columns([1, 3])
     with bottom_cols[0]:
@@ -491,6 +519,23 @@ def render_dataset(name):
         raw_table_html(df_wide, year_cols, title=name, unit=unit, kind=kind),
         unsafe_allow_html=True,
     )
+
+    if kind != "ratio":
+        proj_vals = None
+        if name == "Sugarcane Crush":
+            proj_vals = _render_projection_ui(df_wide, year_cols, unit)
+        ph_monthly.plotly_chart(
+            monthly_comparison(df_wide, year_cols, height=PANEL_H, proj_vals=proj_vals),
+            use_container_width=True,
+        )
+        ph_minmax.plotly_chart(
+            min_max_avg(df_wide, year_cols, height=PANEL_H, proj_vals=proj_vals),
+            use_container_width=True,
+        )
+        ph_cumulative.plotly_chart(
+            cumulative_forecast(df_wide, year_cols, height=2 * PANEL_H + 40, proj_vals=proj_vals),
+            use_container_width=True,
+        )
 
 
 if st.session_state.page == "menu":
