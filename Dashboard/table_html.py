@@ -11,8 +11,7 @@ def _green_shade(t):
     r = LIGHT_GREEN[0] + (DARK_GREEN[0] - LIGHT_GREEN[0]) * t
     g = LIGHT_GREEN[1] + (DARK_GREEN[1] - LIGHT_GREEN[1]) * t
     b = LIGHT_GREEN[2] + (DARK_GREEN[2] - LIGHT_GREEN[2]) * t
-    text = "#ffffff" if t > 0.55 else "#0b0b0b"
-    return f"rgb({int(r)},{int(g)},{int(b)})", text
+    return f"rgb({int(r)},{int(g)},{int(b)})", "#0b0b0b"
 
 
 def _bar_cell(pct, scale=50, height=16, font_size=10):
