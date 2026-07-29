@@ -488,6 +488,10 @@ def render_dataset(name):
     year_cols = year_columns(df_wide)
     unit = UNITS.get(name, "")
 
+    proj_vals = None
+    if name == "Sugarcane Crush":
+        proj_vals = _render_projection_ui(df_wide, year_cols, unit)
+
     PANEL_H = 330
     if kind == "ratio":
         cols = st.columns([1, 1])
@@ -496,16 +500,15 @@ def render_dataset(name):
         with cols[1]:
             st.plotly_chart(min_max_avg(df_wide, year_cols, height=PANEL_H), use_container_width=True)
     else:
-        # Reserve the chart slots now (so they render at the top of the
-        # page), fill them in after the projection controls further down
-        # have computed proj_vals — Streamlit fills placeholders wherever
-        # they were declared, regardless of when content is pushed to them.
         cols = st.columns([1, 1])
         with cols[0]:
-            ph_monthly = st.empty()
-            ph_minmax = st.empty()
+            st.plotly_chart(monthly_comparison(df_wide, year_cols, height=PANEL_H, proj_vals=proj_vals), use_container_width=True)
+            st.plotly_chart(min_max_avg(df_wide, year_cols, height=PANEL_H, proj_vals=proj_vals), use_container_width=True)
         with cols[1]:
-            ph_cumulative = st.empty()
+            st.plotly_chart(
+                cumulative_forecast(df_wide, year_cols, height=2 * PANEL_H + 40, proj_vals=proj_vals),
+                use_container_width=True,
+            )
 
     bottom_cols = st.columns([1, 3])
     with bottom_cols[0]:
@@ -519,23 +522,6 @@ def render_dataset(name):
         raw_table_html(df_wide, year_cols, title=name, unit=unit, kind=kind),
         unsafe_allow_html=True,
     )
-
-    if kind != "ratio":
-        proj_vals = None
-        if name == "Sugarcane Crush":
-            proj_vals = _render_projection_ui(df_wide, year_cols, unit)
-        ph_monthly.plotly_chart(
-            monthly_comparison(df_wide, year_cols, height=PANEL_H, proj_vals=proj_vals),
-            use_container_width=True,
-        )
-        ph_minmax.plotly_chart(
-            min_max_avg(df_wide, year_cols, height=PANEL_H, proj_vals=proj_vals),
-            use_container_width=True,
-        )
-        ph_cumulative.plotly_chart(
-            cumulative_forecast(df_wide, year_cols, height=2 * PANEL_H + 40, proj_vals=proj_vals),
-            use_container_width=True,
-        )
 
 
 if st.session_state.page == "menu":
