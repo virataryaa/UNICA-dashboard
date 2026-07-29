@@ -86,29 +86,25 @@ div[data-testid="stButton"] { margin-bottom: 6px; }
 }
 .stButton>button:disabled::after { color: #e1e0d9; }
 
-/* Dataset page header: navy bar housing both the Back button and the
-   title, laid out with Streamlit's native column vertical-alignment
-   (reliable, no custom CSS layout hacks needed). */
+/* Dataset page header: no background block anymore — plain text title
+   plus a small Back button, laid out with Streamlit's native column
+   vertical-alignment. */
 .st-key-dataset_header {
-    background: linear-gradient(135deg, #1e3a5f 0%, #0f2138 100%);
-    padding: 13px 20px;
-    border-radius: 10px;
-    margin-bottom: 24px;
-    box-shadow: 0 3px 10px rgba(15, 33, 56, 0.18);
+    padding: 6px 20px 18px;
 }
 .st-key-dataset_header h1 {
-    color: white;
-    font-size: 17px;
-    font-weight: 600;
+    color: #1e3a5f;
+    font-size: 20px;
+    font-weight: 700;
     letter-spacing: -0.01em;
     margin: 0;
     text-align: center;
 }
 .st-key-dataset_header button {
-    background-color: transparent !important;
-    border: 1px solid rgba(255, 255, 255, 0.28) !important;
+    background-color: #f2f5f8 !important;
+    border: 1px solid #dbe3ea !important;
     border-radius: 999px !important;
-    color: rgba(255, 255, 255, 0.92) !important;
+    color: #1e3a5f !important;
     font-weight: 500;
     font-size: 13px;
     padding: 6px 14px !important;
@@ -119,14 +115,11 @@ div[data-testid="stButton"] { margin-bottom: 6px; }
     box-shadow: none !important;
     transform: none !important;
 }
-.st-key-dataset_header button::after { content: none !important; }
 .st-key-dataset_header button:hover {
-    background-color: rgba(255, 255, 255, 0.12) !important;
-    border-color: rgba(255, 255, 255, 0.6) !important;
-    color: #ffffff !important;
-    transform: none !important;
-    box-shadow: none !important;
+    background-color: #e6edf5 !important;
+    border-color: #1e3a5f !important;
 }
+.st-key-dataset_header button::after { content: none !important; }
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
