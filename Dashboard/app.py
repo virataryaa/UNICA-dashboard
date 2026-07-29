@@ -30,6 +30,20 @@ CSS = """
     letter-spacing: -0.01em;
     margin: 0;
 }
+.unica-header-menu {
+    background: linear-gradient(135deg, #1e3a5f 0%, #0f2138 100%);
+    display: inline-block;
+    padding: 7px 22px;
+    border-radius: 999px;
+    box-shadow: 0 2px 6px rgba(15, 33, 56, 0.14);
+}
+.unica-header-menu h1 {
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin: 0;
+}
 
 div[data-testid="stMetric"] { background-color: #f9f9f7; }
 
@@ -228,7 +242,10 @@ def _latest_period_label(name):
 def render_menu():
     left, center, right = st.columns([1, 2, 1])
     with center:
-        st.markdown('<div class="unica-header"><h1>UNICA</h1></div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="text-align:center;"><div class="unica-header-menu"><h1>UNICA</h1></div></div>',
+            unsafe_allow_html=True,
+        )
 
         updated_str = datetime.fromtimestamp(os.path.getmtime(DATA_PATH)).strftime("%d %b %Y, %H:%M")
         biweekly_latest = _latest_period_label(BIWEEKLY_DATASETS[0])
