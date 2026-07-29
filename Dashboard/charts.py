@@ -151,13 +151,17 @@ def _pack_stats(series, current_year, prev_year, hist_years):
     return dict(latest=latest, prev=prev, yoy=yoy, vs_avg=vs_avg)
 
 
-def overview_row(df_wide, year_cols, kind="flow"):
-    """Returns both a standalone (single latest-period) reading and a
+def overview_row(df_wide, year_cols, kind="flow", idx=None):
+    """Returns both a standalone (single period reading) and a
     cumulative-to-date reading. For flow metrics, cumulative is a running
     sum. For ratio metrics — which have no meaningful sum — cumulative is
     the season-to-date average of the ratio (we don't store the underlying
-    numerator/denominator needed for a true cumulative ratio)."""
-    idx = _current_period_index(df_wide, year_cols)
+    numerator/denominator needed for a true cumulative ratio).
+
+    idx: explicit row position to read (e.g. a period the user picked via
+    a slicer). Defaults to the latest period with current-year data."""
+    if idx is None:
+        idx = _current_period_index(df_wide, year_cols)
     period_label = df_wide.loc[idx, "Period"]
     current_year, prev_year = year_cols[-1], year_cols[-2]
     hist_years = year_cols[:-1]

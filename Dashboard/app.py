@@ -271,7 +271,22 @@ def render_overview():
         with col_title:
             st.markdown("<h1>Overview</h1>", unsafe_allow_html=True)
 
-    def _build_rows(names):
+    def _available_periods(names):
+        """Periods (in order) where the current year already has a
+        reading, for the group's representative dataset. All datasets in
+        a granularity group share identical row positions per period, so
+        one representative dataset's row index applies to every dataset
+        in the group."""
+        df_wide, kind = _load_dataset(names[0])
+        if df_wide.empty:
+            return [], {}
+        year_cols = year_columns(df_wide)
+        current_year = year_cols[-1]
+        mask = df_wide[current_year].notna()
+        sub = df_wide.loc[mask, "Period"]
+        return sub.tolist(), dict(zip(sub.tolist(), sub.index.tolist()))
+
+    def _build_rows(names, period_idx):
         standalone_rows, cumulative_rows = [], []
         year_cols_ref = None
         for name in names:
@@ -280,14 +295,22 @@ def render_overview():
                 continue
             year_cols = year_columns(df_wide)
             year_cols_ref = year_cols
-            r = overview_row(df_wide, year_cols, kind)
+            r = overview_row(df_wide, year_cols, kind, idx=period_idx)
             unit = UNITS.get(name, "")
             standalone_rows.append({**r["standalone"], "name": name, "unit": unit, "period": r["period"]})
             cumulative_rows.append({**r["cumulative"], "name": name, "unit": unit, "period": r["period"]})
         return standalone_rows, cumulative_rows, year_cols_ref
 
-    def _render_group(group_label, names):
-        standalone_rows, cumulative_rows, year_cols_ref = _build_rows(names)
+    def _render_group(group_label, names, widget_key):
+        periods, label_to_idx = _available_periods(names)
+        if not periods:
+            return
+        selected = st.select_slider(
+            f"{group_label} period", options=periods, value=periods[-1], key=widget_key,
+        )
+        period_idx = label_to_idx[selected]
+
+        standalone_rows, cumulative_rows, year_cols_ref = _build_rows(names, period_idx)
         if not year_cols_ref:
             return
         prev_year, current_year = year_cols_ref[-2], year_cols_ref[-1]
@@ -305,8 +328,8 @@ def render_overview():
                 unsafe_allow_html=True,
             )
 
-    _render_group("Bi-Weekly", BIWEEKLY_DATASETS)
-    _render_group("Monthly", MONTHLY_DATASETS)
+    _render_group("Bi-Weekly", BIWEEKLY_DATASETS, "overview_biweekly_period")
+    _render_group("Monthly", MONTHLY_DATASETS, "overview_monthly_period")
 
 
 def render_dataset(name):
