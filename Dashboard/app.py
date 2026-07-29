@@ -30,8 +30,12 @@ CSS = """
     letter-spacing: -0.01em;
     margin: 0;
 }
+.unica-header-menu {
+    background-color: #1e3a5f;
+    padding: 14px 20px;
+}
 .unica-header-menu h1 {
-    color: #1e3a5f;
+    color: #ffffff;
     font-size: 22px;
     font-weight: 700;
     letter-spacing: 0.02em;
