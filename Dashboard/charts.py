@@ -50,7 +50,33 @@ def _cumulative(df_wide, year_cols):
     return cum
 
 
-def monthly_comparison(df_wide, year_cols, title="Monthly Comparison", height=None):
+def _projection_trace_xy(periods, actual_series, proj_vals, cumulative_base=None):
+    """Builds the (x, y) for a dotted projection line that starts at the
+    last actual data point and continues through proj_vals for whichever
+    trailing periods it covers. If cumulative_base is given, y accumulates
+    (running sum) instead of using proj_vals directly."""
+    last_pos = actual_series.last_valid_index()
+    if last_pos is None:
+        return None, None
+    x = [periods[last_pos]]
+    running = cumulative_base[last_pos] if cumulative_base is not None else actual_series.iloc[last_pos]
+    y = [running]
+    for i in range(last_pos + 1, len(periods)):
+        p = periods[i]
+        if p not in proj_vals:
+            break
+        if cumulative_base is not None:
+            running = running + proj_vals[p]
+            y.append(running)
+        else:
+            y.append(proj_vals[p])
+        x.append(p)
+    if len(x) < 2:
+        return None, None
+    return x, y
+
+
+def monthly_comparison(df_wide, year_cols, title="Monthly Comparison", height=None, proj_vals=None):
     periods = df_wide["Period"].tolist()
     shown_years = _recent_year_cols(year_cols, 6)
     palette_cycle = list(SERIES.values())
@@ -65,11 +91,20 @@ def monthly_comparison(df_wide, year_cols, title="Monthly Comparison", height=No
                        color=INK if is_last else palette_cycle[i % len(palette_cycle)]),
             marker=dict(size=7, color=INK) if is_last else dict(size=0),
         ))
+    if proj_vals:
+        current_year = year_cols[-1]
+        x, y = _projection_trace_xy(periods, df_wide[current_year], proj_vals)
+        if x:
+            fig.add_trace(go.Scatter(
+                x=x, y=y, name=f"{current_year} (proj)", mode="lines+markers",
+                line=dict(width=2, color=INK, dash="dot"),
+                marker=dict(size=6, symbol="circle-open", color=INK),
+            ))
     fig.update_layout(**_layout(title, height))
     return fig
 
 
-def cumulative_forecast(df_wide, year_cols, title="Cumulative (to date)", height=None):
+def cumulative_forecast(df_wide, year_cols, title="Cumulative (to date)", height=None, proj_vals=None):
     periods = df_wide["Period"].tolist()
     cum = _cumulative(df_wide, year_cols)
     shown_years = _recent_year_cols(year_cols, 7)
@@ -84,11 +119,21 @@ def cumulative_forecast(df_wide, year_cols, title="Cumulative (to date)", height
             line=dict(width=4 if is_last else 2,
                        color=INK if is_last else palette_cycle[i % len(palette_cycle)]),
         ))
+    if proj_vals:
+        current_year = year_cols[-1]
+        x, y = _projection_trace_xy(periods, df_wide[current_year], proj_vals,
+                                     cumulative_base=cum[current_year])
+        if x:
+            fig.add_trace(go.Scatter(
+                x=x, y=y, name=f"{current_year} (proj)", mode="lines+markers",
+                line=dict(width=2, color=INK, dash="dot"),
+                marker=dict(size=6, symbol="circle-open", color=INK),
+            ))
     fig.update_layout(**_layout(title, height))
     return fig
 
 
-def min_max_avg(df_wide, year_cols, title="Current vs Min / Max / Avg", height=None):
+def min_max_avg(df_wide, year_cols, title="Current vs Min / Max / Avg", height=None, proj_vals=None):
     periods = df_wide["Period"].tolist()
     current_year = year_cols[-1]
     history_years = [y for y in year_cols[:-1]]
@@ -108,6 +153,14 @@ def min_max_avg(df_wide, year_cols, title="Current vs Min / Max / Avg", height=N
                               mode="lines+markers", connectgaps=True,
                               line=dict(width=3, color=INK),
                               marker=dict(size=7, symbol="diamond")))
+    if proj_vals:
+        x, y = _projection_trace_xy(periods, df_wide[current_year], proj_vals)
+        if x:
+            fig.add_trace(go.Scatter(
+                x=x, y=y, name=f"{current_year} (proj)", mode="lines+markers",
+                line=dict(width=2, color=INK, dash="dot"),
+                marker=dict(size=6, symbol="circle-open", color=INK),
+            ))
     fig.update_layout(**_layout(title, height))
     return fig
 
@@ -192,6 +245,116 @@ def cumulative_ratio_stats(numerator_df, denominator_df, year_cols, idx, scale=1
     ratio = num_cum / (den_cum * denom_multiplier) * scale
 
     return _pack_stats(ratio, current_year, prev_year, hist_years)
+
+
+def remaining_periods(df_wide, year_cols):
+    """Periods of the current (last) year column that haven't been
+    reported yet — the trailing run of periods after the last actual value."""
+    current_year = year_cols[-1]
+    last_valid = df_wide[current_year].last_valid_index()
+    if last_valid is None:
+        return df_wide["Period"].tolist()
+    return df_wide["Period"].iloc[last_valid + 1:].tolist()
+
+
+def default_ytd_yoy(df_wide, year_cols):
+    """Auto-suggested YoY% for the YTD Method: current YTD actual vs
+    prior year's actual over the same periods reported so far."""
+    current_year, prev_year = year_cols[-1], year_cols[-2]
+    last_valid = df_wide[current_year].last_valid_index()
+    if last_valid is None:
+        return 0.0
+    cy_ytd = df_wide[current_year].iloc[:last_valid + 1].sum(skipna=True)
+    py_ytd = df_wide[prev_year].iloc[:last_valid + 1].sum(skipna=True)
+    if py_ytd and py_ytd > 0:
+        return round((cy_ytd / py_ytd - 1) * 100, 1)
+    return 0.0
+
+
+def _complete_years(df_wide, hist_years):
+    return [y for y in hist_years if df_wide[y].notna().all()]
+
+
+def _avg_seasonal_proportions(df_wide, ref_years):
+    """For each period, its average share of that year's full-season
+    total, averaged across ref_years."""
+    ref_df = df_wide.set_index("Period")[ref_years].astype(float)
+    ref_totals = ref_df.sum(axis=0)
+    return ref_df.div(ref_totals, axis=1).mean(axis=1)
+
+
+def project_ytd_method(df_wide, year_cols, yoy_pct, ref_years_n=5):
+    """Scale each remaining period off last year's same-period value by
+    yoy_pct. Falls back to the average of the last few years at that
+    period if last year's value is missing/zero."""
+    current_year, prev_year = year_cols[-1], year_cols[-2]
+    hist_years = year_cols[:-1]
+    rem = remaining_periods(df_wide, year_cols)
+    by_period = df_wide.set_index("Period")
+    proj = {}
+    for p in rem:
+        base = by_period.loc[p, prev_year]
+        if pd.isna(base) or base <= 0:
+            last_n = hist_years[-ref_years_n:]
+            vals = by_period.loc[p, last_n].dropna()
+            base = vals.mean() if not vals.empty else None
+        if base is not None and pd.notna(base):
+            proj[p] = float(base) * (1 + yoy_pct / 100)
+    return proj
+
+
+def project_proportions_method(df_wide, year_cols, ref_years_n=5):
+    """Use the average seasonal shape of the last ref_years_n complete
+    years plus actual YTD to imply a full-season total, then split the
+    remainder across remaining periods by that same shape."""
+    current_year = year_cols[-1]
+    hist_years = year_cols[:-1]
+    rem = remaining_periods(df_wide, year_cols)
+    complete_years = _complete_years(df_wide, hist_years)
+    ref_years = complete_years[-ref_years_n:]
+    if not ref_years:
+        return {}, None
+
+    avg_props = _avg_seasonal_proportions(df_wide, ref_years)
+    last_valid = df_wide[current_year].last_valid_index()
+    actual_periods = df_wide["Period"].iloc[:last_valid + 1].tolist() if last_valid is not None else []
+    act_prop_sum = avg_props[actual_periods].sum() if actual_periods else 0
+    cy_ytd = df_wide[current_year].iloc[:last_valid + 1].sum(skipna=True) if last_valid is not None else 0
+
+    ref_df = df_wide.set_index("Period")[ref_years].astype(float)
+    implied_total = cy_ytd / act_prop_sum if act_prop_sum > 0 else ref_df.sum(axis=0).mean()
+
+    proj = {p: float(implied_total * avg_props.get(p, 0)) for p in rem}
+    return proj, implied_total
+
+
+def project_manual_per_period(df_wide, year_cols, value):
+    rem = remaining_periods(df_wide, year_cols)
+    return {p: float(value) for p in rem}
+
+
+def project_manual_yearly(df_wide, year_cols, target_total, ref_years_n=5):
+    """Remaining budget = target - YTD actual, split across remaining
+    periods by the average seasonal shape of recent complete years."""
+    current_year = year_cols[-1]
+    hist_years = year_cols[:-1]
+    rem = remaining_periods(df_wide, year_cols)
+    last_valid = df_wide[current_year].last_valid_index()
+    cy_ytd = df_wide[current_year].iloc[:last_valid + 1].sum(skipna=True) if last_valid is not None else 0
+    remaining_budget = max(0.0, float(target_total) - cy_ytd)
+
+    complete_years = _complete_years(df_wide, hist_years)
+    ref_years = complete_years[-ref_years_n:]
+    if not ref_years or not rem:
+        return {}, remaining_budget
+
+    avg_props = _avg_seasonal_proportions(df_wide, ref_years)
+    rem_prop_sum = avg_props[rem].sum()
+    proj = {}
+    if rem_prop_sum > 0:
+        for p in rem:
+            proj[p] = float(remaining_budget * avg_props.get(p, 0) / rem_prop_sum)
+    return proj, remaining_budget
 
 
 def ytd_comparison(df_wide, year_cols, kind="flow", title=None, height=None):

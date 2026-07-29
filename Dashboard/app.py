@@ -7,7 +7,9 @@ import pandas as pd
 from data_loader import load_wide, year_columns, dataset_slice, dataset_registry, DATA_PATH
 from charts import (monthly_comparison, cumulative_forecast,
                      min_max_avg, summary_table, ytd_comparison, overview_row,
-                     cumulative_ratio_stats)
+                     cumulative_ratio_stats, remaining_periods, default_ytd_yoy,
+                     project_ytd_method, project_proportions_method,
+                     project_manual_per_period, project_manual_yearly)
 from table_html import raw_table_html, summary_table_html, overview_table_html
 
 st.set_page_config(page_title="UNICA: Brazil", layout="wide")
@@ -377,6 +379,68 @@ def render_overview():
     _render_group("Monthly", MONTHLY_DATASETS, "overview_monthly_period")
 
 
+def _render_projection_ui(df_wide, year_cols, unit):
+    """Scenario Projection block: lets the user forecast the remaining
+    periods of the current season using one of four methods, returning a
+    {period_label: projected_value} dict for the charts to extend with."""
+    rem = remaining_periods(df_wide, year_cols)
+    if not rem:
+        return None
+
+    current_year = year_cols[-1]
+    st.markdown(
+        f'<div style="font-size:0.95rem;font-weight:600;color:#1e3a5f;margin:8px 0 4px;">'
+        f'Scenario Projection <span style="font-weight:400;color:#898781;">'
+        f'remaining periods of {current_year} ({rem[0]} – {rem[-1]})</span></div>',
+        unsafe_allow_html=True,
+    )
+    pc1, pc2 = st.columns([1, 2])
+    with pc1:
+        method = st.radio(
+            "Method", ["YTD Method", "Proportions", "Manual (per Period)", "Manual (Yearly)"],
+            horizontal=True, key="sc_proj_method", label_visibility="collapsed",
+        )
+    with pc2:
+        if method == "YTD Method":
+            default_yoy = default_ytd_yoy(df_wide, year_cols)
+            yoy_pct = st.number_input(
+                f"YoY % vs previous year (auto-filled from current YTD)",
+                value=float(default_yoy), step=0.5, format="%.1f", key="sc_proj_yoy",
+            )
+            proj_vals = project_ytd_method(df_wide, year_cols, yoy_pct)
+
+        elif method == "Proportions":
+            proj_vals, implied_total = project_proportions_method(df_wide, year_cols)
+            if implied_total:
+                st.caption(
+                    f"Implied full-season total: {implied_total:,.0f} {unit} "
+                    f"(based on avg seasonal shape of recent complete years)"
+                )
+            else:
+                st.info("No complete historical years available for the proportions method.")
+
+        elif method == "Manual (per Period)":
+            manual_val = st.number_input(
+                f"Value per remaining period ({unit})",
+                min_value=0.0, value=0.0, step=100000.0, key="sc_proj_manual",
+            )
+            proj_vals = project_manual_per_period(df_wide, year_cols, manual_val)
+
+        else:  # Manual (Yearly)
+            cy_ytd = df_wide[current_year].sum(skipna=True)
+            target = st.number_input(
+                f"Full season target ({unit})  [YTD actual: {cy_ytd:,.0f}]",
+                min_value=0.0, value=float(cy_ytd), step=1000000.0, format="%.0f",
+                key="sc_proj_yearly",
+                help="Remaining = target minus YTD actual, then split across "
+                     "remaining periods by historical seasonal shape.",
+            )
+            proj_vals, remaining_budget = project_manual_yearly(df_wide, year_cols, target)
+            st.caption(f"Remaining budget: {remaining_budget:,.0f} {unit}, allocated by seasonal shape")
+
+    return proj_vals
+
+
 def render_dataset(name):
     with st.container(key="dataset_header"):
         col_back, col_title, col_spacer = st.columns([1, 5, 1], vertical_alignment="center")
@@ -393,6 +457,10 @@ def render_dataset(name):
     year_cols = year_columns(df_wide)
     unit = UNITS.get(name, "")
 
+    proj_vals = None
+    if name == "Sugarcane Crush":
+        proj_vals = _render_projection_ui(df_wide, year_cols, unit)
+
     PANEL_H = 330
     if kind == "ratio":
         cols = st.columns([1, 1])
@@ -403,11 +471,11 @@ def render_dataset(name):
     else:
         cols = st.columns([1, 1])
         with cols[0]:
-            st.plotly_chart(monthly_comparison(df_wide, year_cols, height=PANEL_H), use_container_width=True)
-            st.plotly_chart(min_max_avg(df_wide, year_cols, height=PANEL_H), use_container_width=True)
+            st.plotly_chart(monthly_comparison(df_wide, year_cols, height=PANEL_H, proj_vals=proj_vals), use_container_width=True)
+            st.plotly_chart(min_max_avg(df_wide, year_cols, height=PANEL_H, proj_vals=proj_vals), use_container_width=True)
         with cols[1]:
             st.plotly_chart(
-                cumulative_forecast(df_wide, year_cols, height=2 * PANEL_H + 40),
+                cumulative_forecast(df_wide, year_cols, height=2 * PANEL_H + 40, proj_vals=proj_vals),
                 use_container_width=True,
             )
 
