@@ -305,9 +305,12 @@ def render_overview():
         periods, label_to_idx = _available_periods(names)
         if not periods:
             return
-        selected = st.select_slider(
-            f"{group_label} period", options=periods, value=periods[-1], key=widget_key,
+        selected = st.pills(
+            f"{group_label} period", options=periods, default=periods[-1],
+            selection_mode="single", key=widget_key,
         )
+        if selected is None:
+            selected = periods[-1]
         period_idx = label_to_idx[selected]
 
         standalone_rows, cumulative_rows, year_cols_ref = _build_rows(names, period_idx)
