@@ -120,6 +120,27 @@ div[data-testid="stButton"] { margin-bottom: 6px; }
     border-color: #1e3a5f !important;
 }
 .st-key-dataset_header button::after { content: none !important; }
+
+/* Overview period pills: small and muted grey, not eye-catching teal/navy */
+div[class*="_period_wrap"] button {
+    font-size: 12px !important;
+    padding: 3px 12px !important;
+    min-height: 0 !important;
+    color: #898781 !important;
+    border-color: #e1e0d9 !important;
+    background-color: #fbfbfa !important;
+}
+div[class*="_period_wrap"] button p {
+    font-size: 12px !important;
+    color: inherit !important;
+}
+div[class*="_period_wrap"] button[aria-pressed="true"],
+div[class*="_period_wrap"] button[aria-checked="true"] {
+    color: #52514e !important;
+    border-color: #c3c2b7 !important;
+    background-color: #f2f1ee !important;
+    font-weight: 600;
+}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -305,10 +326,11 @@ def render_overview():
         periods, label_to_idx = _available_periods(names)
         if not periods:
             return
-        selected = st.pills(
-            f"{group_label} period", options=periods, default=periods[-1],
-            selection_mode="single", key=widget_key,
-        )
+        with st.container(key=f"{widget_key}_wrap"):
+            selected = st.pills(
+                f"{group_label} period", options=periods, default=periods[-1],
+                selection_mode="single", key=widget_key,
+            )
         if selected is None:
             selected = periods[-1]
         period_idx = label_to_idx[selected]
