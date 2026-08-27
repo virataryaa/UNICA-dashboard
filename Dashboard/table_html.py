@@ -212,3 +212,62 @@ def raw_table_html(df_wide, year_cols, title, unit="", kind="flow"):
     </div>
     """
     return _flatten(html)
+
+
+_RECON_STYLE = f"""
+<style>
+.mapa-recon-wrap {{ margin: 4px 0 6px; border: 1px solid {GRID}; border-radius: 12px;
+                    overflow-x: auto; box-shadow: 0 1px 4px rgba(11,11,11,0.05); }}
+.mapa-recon {{ border-collapse: collapse; width: 100%; font-size: 11.5px;
+               font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+               font-variant-numeric: tabular-nums; }}
+.mapa-recon th {{ background: #1e3a5f; color: white; padding: 8px 14px;
+                  text-align: right; font-weight: 600; font-size: 10px;
+                  text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; }}
+.mapa-recon th.season-col, .mapa-recon th.note-col {{ text-align: left; }}
+.mapa-recon td {{ padding: 9px 14px; text-align: right; white-space: nowrap;
+                  border-top: 1px solid #f1f0ed; }}
+.mapa-recon td.season-col {{ text-align: left; font-weight: 700; color: {INK}; }}
+.mapa-recon td.count-col {{ color: {MUTED}; font-size: 10.5px; }}
+.mapa-recon td.unica-col {{ color: {MUTED}; }}
+.mapa-recon td.mapa-col {{ color: {INK}; font-weight: 700; font-size: 12px; }}
+.mapa-recon td.bar-cell {{ min-width: 110px; padding: 6px 14px; }}
+.mapa-recon td.note-col {{ text-align: left; color: {MUTED}; font-size: 10.5px;
+                           font-style: italic; white-space: normal; }}
+.mapa-recon tbody tr:hover td {{ background: #fafaf8; }}
+</style>
+"""
+
+
+def recon_table_html(rows, unit=""):
+    """UNICA vs MAPA, season by season. The gap is what matters here, so it
+    gets the bar; the two totals behind it stay quiet."""
+    body = []
+    for r in rows:
+        gap, pct = r["gap"], r["gap_pct"]
+        note = r.get("note") or ""
+        body.append(
+            f'<tr>'
+            f'<td class="season-col">{r["season"]}</td>'
+            f'<td class="count-col">{r["fortnights"]}</td>'
+            f'<td class="unica-col">{_fmt(r["unica"], unit)}</td>'
+            f'<td class="mapa-col">{_fmt(r["mapa"], unit)}</td>'
+            f'<td class="unica-col">{gap:+,.0f}</td>'
+            f'<td class="bar-cell">{_bar_cell(pct, scale=2)}</td>'
+            f'<td class="note-col">{note}</td>'
+            f'</tr>'
+        )
+
+    return _flatten(f"""
+    {_RECON_STYLE}
+    <div class="mapa-recon-wrap">
+    <table class="mapa-recon">
+      <thead><tr>
+        <th class="season-col">Season</th><th>Fortnights</th>
+        <th>UNICA</th><th>MAPA</th><th>Gap</th><th>Gap %</th>
+        <th class="note-col">Note</th>
+      </tr></thead>
+      <tbody>{''.join(body)}</tbody>
+    </table>
+    </div>
+    """)

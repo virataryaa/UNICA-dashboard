@@ -48,6 +48,10 @@ PERIOD_ORDER = {p: i for i, p in enumerate(PERIODS)}
 
 DATE_RE = re.compile(r"(\d{2})/(\d{2})/(\d{4})")
 
+# The fortnight in which a fresh April starts and the report stops counting
+# units that have opened the next safra.
+ROLLOVER = "Apr+ (1)"
+
 
 def txt(v):
     """Cell as a plain string. Accented characters survive the trip from
@@ -166,8 +170,64 @@ def parse_file(path):
     return safra, period, blocks
 
 
-def regions_in(blocks):
-    return {reg for lvl, reg in blocks if lvl == "region"}
+
+def crush_total(blocks):
+    """Season-to-date cane across the regions in one report. Used only to
+    rank two reports claiming the same fortnight."""
+    return sum((vals.get("Cana") or 0)
+               for (lvl, _), vals in blocks.items() if lvl == "region")
+
+
+def resolve_claims(by_period, safra, log):
+    """Settle fortnights that more than one file claims.
+
+    MAPA has published reports whose own Periodo final is wrong - the
+    15/11/2022 report is stamped 30/11, the 31/05/2019 one is stamped 15/06.
+    Both then collide with the genuine report for that fortnight. Because the
+    season cumulative only ever grows, the larger reading is the one that
+    really closes the fortnight, and the shorter one belongs earlier. Where
+    the preceding slot is empty that is exactly where it goes - which is how
+    Nov (1) 22/23 comes back rather than looking like a skipped print. Where
+    the slot is taken the file is a superseded re-upload, and is dropped."""
+    resolved = {}
+    for period in sorted(by_period, key=PERIOD_ORDER.get):
+        ranked = sorted(by_period[period], key=lambda c: crush_total(c[1]), reverse=True)
+        resolved[period] = ranked[0]
+        for name, blocks in ranked[1:]:
+            n = PERIOD_ORDER[period] - 1
+            earlier = PERIODS[n] if n >= 0 else None
+            if earlier and earlier not in by_period and earlier not in resolved:
+                resolved[earlier] = (name, blocks)
+                log.append((safra, period, name, ranked[0][0], "moved to " + earlier))
+            else:
+                log.append((safra, period, name, ranked[0][0], "dropped"))
+    return resolved
+
+
+
+def fold_late_filings(by_period):
+    """Fold a stray reading that sits past a long silence back into the last
+    period before it.
+
+    Centro-Sul stops reporting when its Apr-Mar year closes, then a few late
+    mills file once more months later. That residue belongs to the season
+    that produced it, not to a fortnight in which nothing was crushed - and
+    left where it lands it drags an empty ten-period tail onto every chart.
+    Regions still in season (Nordeste runs to August) report continuously,
+    so nothing folds for them."""
+    ordered = sorted(by_period, key=PERIOD_ORDER.get)
+    for key in {k for blocks in by_period.values() for k in blocks}:
+        seen = [p for p in ordered if key in by_period[p]]
+        if len(seen) < 2:
+            continue
+        for n in range(len(seen) - 1, 0, -1):
+            gap = PERIOD_ORDER[seen[n]] - PERIOD_ORDER[seen[n - 1]]
+            if gap > 2:                       # a real silence, not a skipped print
+                by_period[seen[n - 1]][key] = by_period[seen[n]].pop(key)
+                break
+    for period in [p for p, b in by_period.items() if not b]:
+        del by_period[period]
+    return by_period
 
 
 def main():
@@ -175,16 +235,23 @@ def main():
     if not files:
         sys.exit("No .xls files under %s - run mapa_fetch.py first." % DUMP)
 
-    cum, bad = {}, []
+    claims, bad = {}, []
     for f in files:
         try:
             safra, period, blocks = parse_file(f)
         except Exception as exc:
             bad.append((f.name, "%s: %s" % (type(exc).__name__, exc)))
             continue
-        cum.setdefault(safra, {})[period] = blocks
+        claims.setdefault(safra, {}).setdefault(period, []).append((f.name, blocks))
 
-    records = {}
+    cum, clashes = {}, []
+    for safra, by_period in claims.items():
+        cum[safra] = resolve_claims(by_period, safra, clashes)
+
+    cum = {safra: fold_late_filings({p: b for p, (_, b) in by_period.items()})
+           for safra, by_period in cum.items()}
+
+    records, broken = {}, []
     for safra, by_period in cum.items():
         # A region can drop out of one report and come back in the next (its
         # season ends, or MAPA simply omits it). Differencing against the
@@ -194,7 +261,7 @@ def main():
         last_cum, last_regions = {}, {}
         for period in sorted(by_period, key=PERIOD_ORDER.get):
             blocks = by_period[period]
-            regions = regions_in(blocks)
+            regions = {r for l, r in blocks if l == 'region'}
             for key, vals in blocks.items():
                 seen = last_cum.get(key)
                 for dataset, value in vals.items():
@@ -203,18 +270,33 @@ def main():
                     if dataset not in STOCK_DATASETS:
                         before = (seen or {}).get(dataset)
                         if before is not None:
-                            # TOTAL BRASIL shrinks when a region stops being
-                            # reported. Differencing across that break would
-                            # show the drop as a huge negative flow, so the
-                            # aggregate is only differenced while the set of
-                            # regions behind it holds steady.
+                            # TOTAL BRASIL is a different population once a
+                            # region finishes its year and stops being
+                            # reported, so differencing across that break
+                            # would read the drop as a huge negative flow.
+                            # There is no knowable flow there, and the next
+                            # fortnight is measured from the new base.
                             if key[0] == "country" and last_regions.get(key) != regions:
+                                broken.append((safra, period, key, dataset))
                                 continue
                             value -= before
+                            # The new April is the other population change:
+                            # from there the report stops counting units that
+                            # have already opened the next safra, so every
+                            # entity's cumulative can shrink. The report says
+                            # as much in its own footnote. Nordeste is still
+                            # in season at that point, so the drop would
+                            # otherwise print as a negative fortnight.
+                            if value < 0 and period == ROLLOVER:
+                                broken.append((safra, period, key, dataset))
+                                continue
+                    # Small negatives are left as they are: they are MAPA
+                    # revising the previous fortnight down, and dropping them
+                    # would break the season total they belong to.
                     records.setdefault(key + (dataset, period), {})[safra] = round(value)
+                last_regions[key] = regions
                 last_cum.setdefault(key, {}).update(
                     {d: v for d, v in vals.items() if v is not None})
-                last_regions[key] = regions
 
     years = sorted({y for r in records.values() for y in r},
                    key=lambda s: int(s[:2]))
@@ -235,6 +317,21 @@ def main():
     print("  %d files read, %d unreadable" % (len(files), len(bad)))
     for name, err in bad:
         print("    SKIPPED %s - %s" % (name, err))
+
+    if clashes:
+        print("  %d fortnight(s) claimed by more than one file:" % len(clashes))
+        for safra, period, name, kept, action in clashes:
+            print(f"    {safra} {period:9} kept {kept}")
+            print(f"    {'':6} {'':9}      {name} -> {action}")
+
+    if broken:
+        by_period = {}
+        for safra, period, key, _ in broken:
+            by_period.setdefault((safra, period), set()).add(key[1])
+        print("  %d reading(s) left empty across a change in what the"
+              " aggregate covers:" % len(broken))
+        for (safra, period), regs in sorted(by_period.items())[:8]:
+            print(f"    {safra} {period:9} {', '.join(sorted(regs))}")
 
 
 if __name__ == "__main__":

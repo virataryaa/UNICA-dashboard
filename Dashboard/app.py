@@ -12,7 +12,8 @@ from charts import (monthly_comparison, cumulative_forecast,
                      cumulative_ratio_stats, remaining_periods, default_ytd_yoy,
                      project_ytd_method, project_proportions_method,
                      project_manual_per_period, project_manual_yearly)
-from table_html import raw_table_html, summary_table_html, overview_table_html
+from table_html import (raw_table_html, summary_table_html, overview_table_html,
+                         recon_table_html)
 
 st.set_page_config(page_title="UNICA: Brazil", layout="wide")
 
@@ -696,29 +697,23 @@ def render_mapa_recon():
                    if pd.notna(u.loc[p, y]) and pd.isna(m.loc[p, y])]
         us, ms = u.loc[both, y].sum(), m.loc[both, y].sum()
         rows.append({
-            "Season": y,
-            "Fortnights": len(both),
-            "UNICA": us,
-            "MAPA": ms,
-            "Gap": ms - us,
-            "Gap %": (ms - us) / us * 100 if us else None,
-            "Note": "MAPA skipped " + ", ".join(skipped) if skipped else "",
+            "season": y,
+            "fortnights": len(both),
+            "unica": us,
+            "mapa": ms,
+            "gap": ms - us,
+            "gap_pct": (ms - us) / us * 100 if us else None,
+            "note": "MAPA has no print for " + ", ".join(skipped) if skipped else "",
         })
-    table = pd.DataFrame(rows)
 
-    st.dataframe(
-        table.style.format({
-            "UNICA": "{:,.0f}", "MAPA": "{:,.0f}",
-            "Gap": "{:+,.0f}", "Gap %": "{:+.2f}%",
-        }),
-        use_container_width=True, hide_index=True,
-    )
-    if (table["Note"] != "").any():
+    st.markdown(recon_table_html(rows, unit="MT"), unsafe_allow_html=True)
+
+    if any(r["note"] for r in rows):
         st.markdown(
             '<div style="color:#898781;font-size:12px;margin-top:8px;">'
-            'Where MAPA skipped a publication its next report carries both '
-            'fortnights, so the gap for that season overstates the real '
-            'difference &mdash; the season totals still reconcile.</div>',
+            'Where a fortnight is missing on one side the two columns are not '
+            'counting the same stretch of season, so the gap for that row '
+            'overstates the real difference.</div>',
             unsafe_allow_html=True,
         )
 
