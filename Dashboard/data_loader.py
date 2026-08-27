@@ -43,12 +43,12 @@ MAPA_PATH = Path(__file__).resolve().parent.parent / "Database" / "mapa_master.c
 
 MAPA_ID_COLS = ["Level", "Region", "Dataset", "Kind", "Period"]
 
-# A safra covers 17 months, not 12: reporting runs Apr through Aug of the
-# following year, because Nordeste's Sep-Aug season outlasts Centro-Sul's
-# Apr-Mar one. The tail months carry a '+' so they never read as the
-# season's own opening months. Mirrors Code/mapa_ingest.py.
+# The same 24-fortnight Apr-Mar axis unica_master.csv uses. MAPA reports for
+# five months past March, since Nordeste's Sep-Aug season outlasts the
+# reporting year, but the ingest folds those onto the closing fortnight.
+# Mirrors Code/mapa_ingest.py.
 MAPA_MONTHS = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-               "Jan", "Feb", "Mar", "Apr+", "May+", "Jun+", "Jul+", "Aug+"]
+               "Jan", "Feb", "Mar"]
 MAPA_PERIODS = [f"{m} ({h})" for m in MAPA_MONTHS for h in (1, 2)]
 
 MAPA_REGIONS = [

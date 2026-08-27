@@ -9,11 +9,12 @@ fortnights flow through automatically on the next run.
 
 Two things the raw files make awkward, both handled here:
 
-* A safra spans 17 months, not 12. Reports run Apr -> Aug of the following
-  year because Nordeste's Sep-Aug season outlasts Centro-Sul's Apr-Mar. The
-  trailing five months are labelled 'Apr+' .. 'Aug+' so they never collide
-  with the season's own opening April. The first 24 periods line up exactly
-  with unica_master.csv's Apr (1) .. Mar (2) axis.
+* MAPA reports for 17 months, not 12, because Nordeste's Sep-Aug season
+  outlasts the Apr-Mar reporting year. Those months are read on their own
+  'Apr+' .. 'Aug+' axis, so they never collide with the season's opening
+  months, and then folded onto the closing fortnight - the trickle out there
+  is not worth ten near-empty columns. Every region ends up on the same
+  24-period Apr (1) .. Mar (2) axis as unica_master.csv.
 
 * Column positions move between safras (a 22-column and a 19-column layout
   are both in circulation), so columns are located by reading the sheet's
@@ -51,6 +52,10 @@ DATE_RE = re.compile(r"(\d{2})/(\d{2})/(\d{4})")
 # The fortnight in which a fresh April starts and the report stops counting
 # units that have opened the next safra.
 ROLLOVER = "Apr+ (1)"
+
+# The season closes in March; see close_season for what happens to the
+# fortnights MAPA keeps publishing after it.
+CLOSE = "Mar (2)"
 
 
 def txt(v):
@@ -169,6 +174,29 @@ def parse_file(path):
         raise ValueError("no readable safra/periodo/data block")
     return safra, period, blocks
 
+
+
+def close_season(records):
+    """Collapse the five months MAPA reports past March onto the closing
+    fortnight, so every region shares unica_master.csv's 24-period Apr-Mar
+    axis.
+
+    Only Nordeste is still cutting out there, and only lightly - most of the
+    tail is zeros, and on its own axis it drags ten near-empty columns onto
+    every table and chart. Flows are added into the close, which keeps the
+    season total whole; stocks are levels, so the last reading stands."""
+    collapsed = {}
+    for (lvl, reg, ds, period), vals in sorted(
+            records.items(), key=lambda kv: PERIOD_ORDER[kv[0][3]]):
+        if PERIOD_ORDER[period] > PERIOD_ORDER[CLOSE]:
+            period = CLOSE
+        held = collapsed.setdefault((lvl, reg, ds, period), {})
+        for year, value in vals.items():
+            if ds in STOCK_DATASETS:
+                held[year] = value
+            else:
+                held[year] = held.get(year, 0) + value
+    return collapsed
 
 
 def crush_total(blocks):
@@ -297,6 +325,8 @@ def main():
                 last_regions[key] = regions
                 last_cum.setdefault(key, {}).update(
                     {d: v for d, v in vals.items() if v is not None})
+
+    records = close_season(records)
 
     years = sorted({y for r in records.values() for y in r},
                    key=lambda s: int(s[:2]))
