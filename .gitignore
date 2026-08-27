@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 *.log
 .streamlit/secrets.toml
+
+# Raw MAPA/SAPCANA downloads - rebuilt by Code/mapa_fetch.py, only
+# Database/mapa_master.csv is published.
+Database/Mapa/

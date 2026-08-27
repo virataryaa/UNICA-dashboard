@@ -31,3 +31,95 @@ def dataset_slice(df_wide, dataset):
 def dataset_registry(df_wide):
     reg = df_wide[["Dataset", "Kind"]].drop_duplicates().reset_index(drop=True)
     return reg
+
+
+# --- MAPA / SAPCANA -------------------------------------------------------
+# Same fortnightly grid as UNICA, but every series is additionally cut by
+# Level (country / region / state) and Region. Slices are handed back in the
+# exact shape load_wide() returns so the chart layer can stay unaware of
+# which source it is drawing.
+
+MAPA_PATH = Path(__file__).resolve().parent.parent / "Database" / "mapa_master.csv"
+
+MAPA_ID_COLS = ["Level", "Region", "Dataset", "Kind", "Period"]
+
+# A safra covers 17 months, not 12: reporting runs Apr through Aug of the
+# following year, because Nordeste's Sep-Aug season outlasts Centro-Sul's
+# Apr-Mar one. The tail months carry a '+' so they never read as the
+# season's own opening months. Mirrors Code/mapa_ingest.py.
+MAPA_MONTHS = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+               "Jan", "Feb", "Mar", "Apr+", "May+", "Jun+", "Jul+", "Aug+"]
+MAPA_PERIODS = [f"{m} ({h})" for m in MAPA_MONTHS for h in (1, 2)]
+
+MAPA_REGIONS = [
+    ("Brasil", "country", "BR"),
+    ("Centro-Sul", "region", "CS"),
+    ("Norte", "region", "N"),
+    ("Nordeste", "region", "NE"),
+]
+
+MAPA_GROUPS = {
+    "Production": ["Cana", "Acucar", "Etanol Total"],
+    "Anhydrous": [
+        "Anidro Producao", "Anidro Entradas", "Anidro Saidas Distrib",
+        "Anidro Saidas M.Ext", "Anidro Saidas Outras",
+        "Anidro Estoque E.Fisico", "Anidro Estoque E.Disp",
+    ],
+    "Hydrous": [
+        "Hidratado Producao", "Hidratado Entradas", "Hidratado Saidas Distrib",
+        "Hidratado Saidas M.Ext", "Hidratado Saidas Outras",
+        "Hidratado Estoque E.Fisico", "Hidratado Estoque E.Disp",
+    ],
+}
+
+
+def load_mapa():
+    return pd.read_csv(MAPA_PATH)
+
+
+def mapa_year_columns(df):
+    return [c for c in df.columns if c not in MAPA_ID_COLS]
+
+
+def mapa_states(df):
+    return sorted(df.loc[df["Level"] == "state", "Region"].unique())
+
+
+def mapa_period_grid(df):
+    """The full fortnightly axis, in season order. The master is grouped by
+    series before period, so the order has to come from the calendar rather
+    than from the order rows happen to appear in."""
+    present = set(df["Period"])
+    return [p for p in MAPA_PERIODS if p in present]
+
+
+def mapa_slice(df, level, region, dataset):
+    """One series, reshaped to the [Dataset, Kind, Period, years...] frame
+    the chart helpers expect.
+
+    Reindexed onto the full period grid so that a region which reports for
+    only part of the season - Centro-Sul goes quiet once its Apr-Mar year
+    closes, then files one closing true-up - keeps every year aligned on the
+    same rows, with the quiet stretch showing as a genuine gap rather than
+    silently closing up. Trailing periods nobody ever reports are dropped so
+    the axis ends where the data does."""
+    sub = df[(df["Level"] == level)
+             & (df["Region"] == region)
+             & (df["Dataset"] == dataset)]
+    if sub.empty:
+        return sub.drop(columns=["Level", "Region"], errors="ignore"), "flow"
+
+    kind = sub["Kind"].iloc[0]
+    years = mapa_year_columns(sub)
+    grid = mapa_period_grid(df)
+    sub = (sub.drop(columns=["Level", "Region"])
+              .set_index("Period")
+              .reindex(grid)
+              .reset_index())
+    sub["Dataset"] = dataset
+    sub["Kind"] = kind
+
+    keep = sub[years].notna().any(axis=1)
+    if keep.any():
+        sub = sub.loc[: keep[keep].index.max()]
+    return sub[["Dataset", "Kind", "Period"] + years].reset_index(drop=True), kind

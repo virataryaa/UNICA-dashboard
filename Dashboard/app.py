@@ -4,7 +4,9 @@ from datetime import datetime
 import streamlit as st
 import pandas as pd
 
-from data_loader import load_wide, year_columns, dataset_slice, dataset_registry, DATA_PATH
+from data_loader import (load_wide, year_columns, dataset_slice, dataset_registry, DATA_PATH,
+                          load_mapa, mapa_slice, mapa_states, mapa_year_columns,
+                          MAPA_GROUPS, MAPA_REGIONS, MAPA_PATH)
 from charts import (monthly_comparison, cumulative_forecast,
                      min_max_avg, summary_table, ytd_comparison, overview_row,
                      cumulative_ratio_stats, remaining_periods, default_ytd_yoy,
@@ -297,6 +299,8 @@ def render_menu():
 
         st.button("Overview", key="menu_Overview", on_click=go_to, args=("Overview",),
                    use_container_width=True)
+        st.button("MAPA — all Brazilian mills, incl. stocks", key="menu_mapa",
+                   on_click=go_to, args=("mapa_menu",), use_container_width=True)
 
         col_left, col_right = st.columns(2)
         with col_left:
@@ -492,8 +496,15 @@ def render_dataset(name):
     if name == "Sugarcane Crush":
         proj_vals = _render_projection_ui(df_wide, year_cols, unit)
 
+    _render_panels(df_wide, year_cols, kind, name, unit, proj_vals)
+
+
+def _render_panels(df_wide, year_cols, kind, title, unit, proj_vals=None):
+    """The chart + table body shared by every series page. Ratios and stocks
+    are levels rather than quantities, so they skip the cumulative panel and
+    the running-sum tables that only mean something for a flow."""
     PANEL_H = 330
-    if kind == "ratio":
+    if kind in ("ratio", "stock"):
         cols = st.columns([1, 1])
         with cols[0]:
             st.plotly_chart(monthly_comparison(df_wide, year_cols, height=PANEL_H), use_container_width=True)
@@ -519,14 +530,220 @@ def render_dataset(name):
                          use_container_width=True)
 
     st.markdown(
-        raw_table_html(df_wide, year_cols, title=name, unit=unit, kind=kind),
+        raw_table_html(df_wide, year_cols, title=title, unit=unit, kind=kind),
         unsafe_allow_html=True,
     )
 
 
-if st.session_state.page == "menu":
+# --- MAPA / SAPCANA ------------------------------------------------------
+# MAPA covers every mill in Brazil, not just UNICA's Centro-Sul membership,
+# and publishes ethanol stocks and movements that UNICA does not report at
+# all. It also lands roughly a fortnight ahead of UNICA.
+
+MAPA_LABELS = {
+    "Cana": "Cane Crush",
+    "Acucar": "Sugar",
+    "Etanol Total": "Ethanol Total",
+    "Producao": "Production",
+    "Entradas": "Inflows",
+    "Saidas Distrib": "Sales to Distributors",
+    "Saidas M.Ext": "Exports",
+    "Saidas Outras": "Other Outflows",
+    "Estoque E.Fisico": "Stock (Physical)",
+    "Estoque E.Disp": "Stock (Available)",
+}
+
+MAPA_TONNE_DATASETS = {"Cana", "Acucar"}
+
+
+def mapa_label(dataset):
+    """Short label for a series, with the grade prefix stripped - the group
+    heading already says whether it is anhydrous or hydrous."""
+    for prefix in ("Anidro ", "Hidratado "):
+        if dataset.startswith(prefix):
+            return MAPA_LABELS.get(dataset[len(prefix):], dataset[len(prefix):])
+    return MAPA_LABELS.get(dataset, dataset)
+
+
+def mapa_unit(dataset):
+    return "MT" if dataset in MAPA_TONNE_DATASETS else "m3"
+
+
+def mapa_region_name(level, region):
+    for name, lvl, code in MAPA_REGIONS:
+        if (lvl, code) == (level, region):
+            return name
+    return region
+
+
+def go_to_mapa(dataset):
+    st.session_state.page = "mapa:" + dataset
+
+
+def _mapa_selected_region():
+    return st.session_state.get("mapa_region", ("country", "BR"))
+
+
+def render_mapa_menu():
+    mapa = load_mapa()
+    left, center, right = st.columns([1, 2, 1])
+    with center:
+        st.markdown(
+            '<div style="text-align:center;"><div class="unica-header-menu"><h1>MAPA</h1></div></div>',
+            unsafe_allow_html=True,
+        )
+        updated = datetime.fromtimestamp(os.path.getmtime(MAPA_PATH)).strftime("%d %b %Y, %H:%M")
+        st.markdown(
+            f'<div style="text-align:center;color:#898781;font-size:12px;margin:10px 0 6px;">'
+            f'SAPCANA &mdash; all Brazilian mills &nbsp;·&nbsp; Data last updated {updated}</div>',
+            unsafe_allow_html=True,
+        )
+
+        st.button("← UNICA", key="mapa_back", on_click=go_to, args=("menu",))
+
+        level, region = _mapa_selected_region()
+        names = [n for n, _, _ in MAPA_REGIONS] + ["State"]
+        default = "State" if level == "state" else mapa_region_name(level, region)
+        with st.container(key="mapa_region_pillbar"):
+            picked = st.pills("Region", options=names, default=default,
+                               selection_mode="single", key="mapa_region_pick",
+                               label_visibility="collapsed")
+        picked = picked or default
+
+        if picked == "State":
+            states = mapa_states(mapa)
+            current = region if level == "state" else states[0]
+            state = st.selectbox("State", states, index=states.index(current),
+                                  key="mapa_state_pick")
+            st.session_state.mapa_region = ("state", state)
+        else:
+            st.session_state.mapa_region = next(
+                (lvl, code) for n, lvl, code in MAPA_REGIONS if n == picked)
+
+        st.button("Reconciliation vs UNICA", key="mapa_recon",
+                   on_click=go_to, args=("mapa_recon",), use_container_width=True)
+
+        for group, datasets in MAPA_GROUPS.items():
+            st.markdown(
+                f'<div style="color:#1e3a5f;font-size:13px;font-weight:600;'
+                f'margin:14px 0 6px;">{group}</div>',
+                unsafe_allow_html=True,
+            )
+            for ds in datasets:
+                st.button(mapa_label(ds), key=f"mapa_menu_{ds}",
+                           on_click=go_to_mapa, args=(ds,), use_container_width=True)
+
+
+def render_mapa_dataset(dataset):
+    level, region = _mapa_selected_region()
+    region_name = mapa_region_name(level, region)
+    title = f"{mapa_label(dataset)} — {region_name}"
+
+    with st.container(key="dataset_header"):
+        col_back, col_title, col_spacer = st.columns([1, 5, 1], vertical_alignment="center")
+        with col_back:
+            st.button("← Back", on_click=go_to, args=("mapa_menu",))
+        with col_title:
+            st.markdown(f"<h1>{title}</h1>", unsafe_allow_html=True)
+
+    df_wide, kind = mapa_slice(load_mapa(), level, region, dataset)
+    if df_wide.empty:
+        st.info(f"MAPA reports no {mapa_label(dataset)} for {region_name}.")
+        return
+
+    year_cols = year_columns(df_wide)
+    _render_panels(df_wide, year_cols, kind, title, mapa_unit(dataset))
+
+
+def render_mapa_recon():
+    with st.container(key="dataset_header"):
+        col_back, col_title, col_spacer = st.columns([1, 5, 1], vertical_alignment="center")
+        with col_back:
+            st.button("← Back", on_click=go_to, args=("mapa_menu",))
+        with col_title:
+            st.markdown("<h1>Reconciliation vs UNICA</h1>", unsafe_allow_html=True)
+
+    st.markdown(
+        '<div style="color:#898781;font-size:12px;margin:0 0 14px;">'
+        'Both series measure Centro-Sul cane crush. UNICA counts its member '
+        'mills; MAPA counts every mill, and publishes ahead of UNICA &mdash; '
+        'so the gap is roughly the non-member share, and the trailing '
+        'fortnights are MAPA-only.</div>',
+        unsafe_allow_html=True,
+    )
+
+    unica, _ = _load_dataset("Sugarcane Crush")
+    mapa, _ = mapa_slice(load_mapa(), "region", "CS", "Cana")
+    years = [y for y in year_columns(unica) if y in mapa_year_columns(mapa)]
+    if not years:
+        st.info("No overlapping seasons between the two sources.")
+        return
+
+    u = unica.set_index("Period")
+    m = mapa.set_index("Period")
+    shared = [p for p in u.index if p in m.index]
+
+    rows = []
+    for y in years:
+        both = [p for p in shared if pd.notna(u.loc[p, y]) and pd.notna(m.loc[p, y])]
+        if not both:
+            continue
+        # When MAPA skips a publication, the next report's flow covers both
+        # fortnights. The season total stays right, but a fortnight-matched
+        # comparison then reads one MAPA period against two of UNICA's, so
+        # those seasons are called out rather than silently compared.
+        skipped = [p for p in shared
+                   if pd.notna(u.loc[p, y]) and pd.isna(m.loc[p, y])]
+        us, ms = u.loc[both, y].sum(), m.loc[both, y].sum()
+        rows.append({
+            "Season": y,
+            "Fortnights": len(both),
+            "UNICA": us,
+            "MAPA": ms,
+            "Gap": ms - us,
+            "Gap %": (ms - us) / us * 100 if us else None,
+            "Note": "MAPA skipped " + ", ".join(skipped) if skipped else "",
+        })
+    table = pd.DataFrame(rows)
+
+    st.dataframe(
+        table.style.format({
+            "UNICA": "{:,.0f}", "MAPA": "{:,.0f}",
+            "Gap": "{:+,.0f}", "Gap %": "{:+.2f}%",
+        }),
+        use_container_width=True, hide_index=True,
+    )
+    if (table["Note"] != "").any():
+        st.markdown(
+            '<div style="color:#898781;font-size:12px;margin-top:8px;">'
+            'Where MAPA skipped a publication its next report carries both '
+            'fortnights, so the gap for that season overstates the real '
+            'difference &mdash; the season totals still reconcile.</div>',
+            unsafe_allow_html=True,
+        )
+
+    latest = years[-1]
+    ahead = [p for p in m.index
+             if pd.notna(m.loc[p, latest]) and pd.isna(u.loc[p, latest])] if latest in u.columns else []
+    if ahead:
+        st.markdown(
+            f'<div style="color:#0f766e;font-size:12px;margin-top:10px;">'
+            f'MAPA is ahead of UNICA for {latest} by {len(ahead)} fortnight(s): '
+            f'{", ".join(ahead)}.</div>',
+            unsafe_allow_html=True,
+        )
+
+
+page = st.session_state.page
+if page == "menu":
     render_menu()
-elif st.session_state.page == "Overview":
+elif page == "mapa_menu":
+    render_mapa_menu()
+elif page == "mapa_recon":
+    render_mapa_recon()
+elif page.startswith("mapa:"):
+    render_mapa_dataset(page[len("mapa:"):])
+elif page == "Overview":
     render_overview()
 else:
     render_dataset(st.session_state.page)
