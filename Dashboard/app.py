@@ -95,6 +95,23 @@ div[data-testid="stButton"] { margin-bottom: 6px; }
 }
 .stButton>button:disabled::after { color: #e1e0d9; }
 
+/* MAPA is a different source, not another UNICA series, so its entry point
+   sits apart at the foot of the menu and wears the accent tint rather than
+   the neutral the series buttons share. */
+.st-key-mapa_entry { margin-top: 26px; }
+.st-key-mapa_entry .stButton>button {
+    background-color: #eef6f4;
+    border-color: #d3e7e2;
+    color: #0f766e;
+}
+.st-key-mapa_entry .stButton>button::after { color: #7fb3ab; }
+.st-key-mapa_entry .stButton>button:hover {
+    background-color: #e4f1ee;
+    border-color: #0f766e;
+    color: #0b5c55;
+}
+.st-key-mapa_entry .stButton>button:hover::after { color: #0f766e; }
+
 /* Dataset page header: no background block anymore — plain text title
    plus a small Back button, laid out with Streamlit's native column
    vertical-alignment. */
@@ -303,9 +320,6 @@ def render_menu():
 
         st.button("Overview", key="menu_Overview", on_click=go_to, args=("Overview",),
                    use_container_width=True)
-        st.button("MAPA — all Brazilian mills, incl. stocks", key="menu_mapa",
-                   on_click=go_to, args=("mapa_menu",), use_container_width=True)
-
         col_left, col_right = st.columns(2)
         with col_left:
             for item in BIWEEKLY_DATASETS:
@@ -319,6 +333,10 @@ def render_menu():
                 label = item if not disabled else f"{item} (coming soon)"
                 st.button(label, key=f"menu_{item}", disabled=disabled,
                            on_click=go_to, args=(item,), use_container_width=True)
+
+        with st.container(key="mapa_entry"):
+            st.button("MAPA — all Brazilian mills, incl. stocks", key="menu_mapa",
+                       on_click=go_to, args=("mapa_menu",), use_container_width=True)
 
 
 def render_overview():
