@@ -7,7 +7,7 @@ the ESTOQUE columns are levels and pass through untouched. Diffing the
 cumulatives rather than storing them means MAPA's revisions to earlier
 fortnights flow through automatically on the next run.
 
-Two things the raw files make awkward, both handled here:
+Three things the raw files make awkward, all handled here:
 
 * MAPA reports for 17 months, not 12, because Nordeste's Sep-Aug season
   outlasts the Apr-Mar reporting year. Those months are read on their own
@@ -20,6 +20,12 @@ Two things the raw files make awkward, both handled here:
   are both in circulation), so columns are located by reading the sheet's
   own header rows rather than by index. Header text arrives with unreliable
   accent encoding, so matching only ever uses ASCII-safe fragments.
+
+* Some safras are closed with a full-season restatement filed months after
+  the season ended - 18/19 and 21/22 both arrive the following August, well
+  past the April reset that puts every entity onto a smaller basis. That
+  file is still counted from 01/04, so it is differenced against the season
+  basis rather than against the reset one; see main().
 
 Output shape mirrors unica_master.csv so the dashboard can share code:
     Level,Region,Dataset,Kind,Period,18/19,...,26/27
@@ -286,45 +292,74 @@ def main():
         # immediately preceding report would then read the whole season-to-
         # date cumulative as one fortnight's flow, so each entity is carried
         # against the last report it actually appeared in.
-        last_cum, last_regions = {}, {}
+        last_cum, tail_cum, closed, last_regions = {}, {}, {}, {}
         for period in sorted(by_period, key=PERIOD_ORDER.get):
             blocks = by_period[period]
             regions = {r for l, r in blocks if l == 'region'}
+            past_rollover = PERIOD_ORDER[period] >= PERIOD_ORDER[ROLLOVER]
             for key, vals in blocks.items():
-                seen = last_cum.get(key)
+                season = last_cum.setdefault(key, {})
+                tail = tail_cum.setdefault(key, {})
+                close = closed.setdefault(key, {})
                 for dataset, value in vals.items():
                     if value is None:
                         continue
-                    if dataset not in STOCK_DATASETS:
-                        before = (seen or {}).get(dataset)
-                        if before is not None:
-                            # TOTAL BRASIL is a different population once a
-                            # region finishes its year and stops being
-                            # reported, so differencing across that break
-                            # would read the drop as a huge negative flow.
-                            # There is no knowable flow there, and the next
-                            # fortnight is measured from the new base.
-                            if key[0] == "country" and last_regions.get(key) != regions:
-                                broken.append((safra, period, key, dataset))
-                                continue
-                            value -= before
-                            # The new April is the other population change:
-                            # from there the report stops counting units that
-                            # have already opened the next safra, so every
-                            # entity's cumulative can shrink. The report says
-                            # as much in its own footnote. Nordeste is still
-                            # in season at that point, so the drop would
-                            # otherwise print as a negative fortnight.
-                            if value < 0 and period == ROLLOVER:
-                                broken.append((safra, period, key, dataset))
-                                continue
-                    # Small negatives are left as they are: they are MAPA
-                    # revising the previous fortnight down, and dropping them
-                    # would break the season total they belong to.
+                    if dataset in STOCK_DATASETS:
+                        records.setdefault(key + (dataset, period), {})[safra] = round(value)
+                        continue
+                    before = season.get(dataset)
+                    if before is None:
+                        # Nothing to difference against, and none needed: the
+                        # report counts from 01/04, so the first cumulative
+                        # this entity shows is already the flow.
+                        season[dataset] = value
+                    elif past_rollover and value < close.get(dataset, before):
+                        # From the new April the report stops counting units
+                        # that have opened the next safra, so the cumulative
+                        # drops onto a smaller basis - the report says as much
+                        # in its own footnote. Nordeste is still in season out
+                        # there, so the tail is differenced against itself and
+                        # only its first reading has no knowable flow.
+                        #
+                        # The two bases then run side by side to the end of the
+                        # safra, and readings are told apart by the season's
+                        # closing cumulative, frozen here at the first drop.
+                        # It has to be the frozen close rather than the running
+                        # season figure: MAPA prints the odd tail reading that
+                        # it reverses in the next report, and only a fixed
+                        # threshold keeps both halves of that pair on the same
+                        # basis, where they cancel.
+                        #
+                        # Keeping the season basis alive is what lets a late
+                        # full-season restatement land correctly. MAPA closes
+                        # some safras with one filed months after the season
+                        # ended (18/19 and 21/22 both arrive the following
+                        # August); differencing that against the reduced tail
+                        # would read the whole crop as one fortnight.
+                        close.setdefault(dataset, before)
+                        before, tail[dataset] = tail.get(dataset), value
+                        if before is None:
+                            broken.append((safra, period, key, dataset))
+                            continue
+                        value -= before
+                    elif key[0] == "country" and last_regions.get(key) != regions:
+                        # TOTAL BRASIL is a different population once a region
+                        # finishes its year and stops being reported, so
+                        # differencing across that break would read the drop
+                        # as a huge negative flow. There is no knowable flow
+                        # there, and the next fortnight is measured from the
+                        # new base.
+                        season[dataset] = value
+                        broken.append((safra, period, key, dataset))
+                        continue
+                    else:
+                        # Small negatives are left as they are: they are MAPA
+                        # revising the previous fortnight down, and dropping
+                        # them would break the season total they belong to.
+                        season[dataset] = value
+                        value -= before
                     records.setdefault(key + (dataset, period), {})[safra] = round(value)
                 last_regions[key] = regions
-                last_cum.setdefault(key, {}).update(
-                    {d: v for d, v in vals.items() if v is not None})
 
     records = close_season(records)
 
