@@ -17,7 +17,7 @@ from charts import (monthly_comparison, cumulative_forecast,
 from table_html import (raw_table_html, summary_table_html, overview_table_html,
                          recon_table_html, source_stats_table_html)
 
-st.set_page_config(page_title="UNICA: Brazil", layout="wide",
+st.set_page_config(page_title="Brazil Sugar", layout="wide",
                     initial_sidebar_state="expanded")
 
 CSS = """
@@ -319,7 +319,7 @@ def render_home():
     with center:
         st.markdown(
             '<div style="text-align:center;"><div class="unica-header-menu">'
-            '<h1>Brazil</h1></div></div>',
+            '<h1>Brazil Sugar</h1></div></div>',
             unsafe_allow_html=True,
         )
         unica_at = datetime.fromtimestamp(os.path.getmtime(DATA_PATH)).strftime("%d %b %Y")
