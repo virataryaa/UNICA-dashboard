@@ -688,41 +688,39 @@ def _render_source_comparison():
     # was picked against, so an ingest that extends or trims the record would
     # otherwise leave a stored range outside the axis, which both widgets
     # below reject outright.
-    stored = st.session_state.get("recon_slider") or (dmin, dmax)
+    stored = st.session_state.get("recon_slider")
+    if not isinstance(stored, (tuple, list)) or len(stored) != 2:
+        stored = (dmin, dmax)
     lo = min(max(stored[0], dmin), dmax)
     hi = min(max(stored[1], dmin), dmax)
     if hi < lo:
         lo, hi = dmin, dmax
-    if (lo, hi) != tuple(stored):
-        st.session_state.recon_slider = (lo, hi)
+    # Written back unconditionally, and always as a pair. st.slider decides
+    # between a single handle and a range from the type of the value it starts
+    # with, so leaving the key unset on a first visit hands back a scalar and
+    # the unpack below fails.
+    st.session_state.recon_slider = (lo, hi)
 
-    # Both jump controls carry the current range in their key, so each rerun
-    # rebuilds them fresh. Without that the pill would stay selected and keep
-    # snapping the range back every time the slider moved.
-    col_cal, col_pills = st.columns([1.1, 2.4], vertical_alignment="bottom")
-    with col_cal:
-        cal = st.date_input("From / to", value=(lo, hi), min_value=dmin,
-                            max_value=dmax, key=f"recon_cal_{lo}_{hi}")
-    with col_pills:
-        picked = st.pills("Season", options=["All"] + safras, default=None,
-                          selection_mode="single", label_visibility="collapsed",
-                          key=f"recon_pill_{lo}_{hi}")
+    # The season pills only jump the slider, and only on the run where the
+    # selection actually changes. Applying them every run would drag the range
+    # back to the season boundary each time the slider moved.
+    picked = st.pills("Season", options=["All"] + safras, default=None,
+                      selection_mode="single", label_visibility="collapsed",
+                      key="recon_pill")
 
-    new_range = None
-    if picked == "All":
-        new_range = (dmin, dmax)
-    elif picked:
-        got = [d for f in frames.values()
-               for d, s in zip(f["date"], f["safra"]) if s == picked]
-        if got:
-            new_range = (min(got), max(got))
-    elif isinstance(cal, (tuple, list)) and len(cal) == 2:
-        if (cal[0], cal[1]) != (lo, hi):
-            new_range = (cal[0], cal[1])
-
-    if new_range and new_range != (lo, hi):
-        st.session_state.recon_slider = new_range
-        st.rerun()
+    if picked != st.session_state.get("recon_pill_applied"):
+        st.session_state.recon_pill_applied = picked
+        jump = None
+        if picked == "All":
+            jump = (dmin, dmax)
+        elif picked:
+            got = [d for f in frames.values()
+                   for d, s in zip(f["date"], f["safra"]) if s == picked]
+            if got:
+                jump = (min(got), max(got))
+        if jump and jump != (lo, hi):
+            st.session_state.recon_slider = jump
+            st.rerun()
 
     lo, hi = st.slider("Range", min_value=dmin, max_value=dmax,
                        key="recon_slider", format="MMM YYYY",
