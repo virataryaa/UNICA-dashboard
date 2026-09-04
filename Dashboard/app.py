@@ -17,7 +17,8 @@ from charts import (monthly_comparison, cumulative_forecast,
 from table_html import (raw_table_html, summary_table_html, overview_table_html,
                          recon_table_html, source_stats_table_html)
 
-st.set_page_config(page_title="UNICA: Brazil", layout="wide")
+st.set_page_config(page_title="UNICA: Brazil", layout="wide",
+                    initial_sidebar_state="expanded")
 
 CSS = """
 <style>
@@ -604,25 +605,6 @@ def render_mapa_menu():
 
         st.button("← UNICA", key="mapa_back", on_click=go_to, args=("menu",))
 
-        level, region = _mapa_selected_region()
-        names = [n for n, _, _ in MAPA_REGIONS] + ["State"]
-        default = "State" if level == "state" else mapa_region_name(level, region)
-        with st.container(key="mapa_region_pillbar"):
-            picked = st.pills("Region", options=names, default=default,
-                               selection_mode="single", key="mapa_region_pick",
-                               label_visibility="collapsed")
-        picked = picked or default
-
-        if picked == "State":
-            states = mapa_states(mapa)
-            current = region if level == "state" else states[0]
-            state = st.selectbox("State", states, index=states.index(current),
-                                  key="mapa_state_pick")
-            st.session_state.mapa_region = ("state", state)
-        else:
-            st.session_state.mapa_region = next(
-                (lvl, code) for n, lvl, code in MAPA_REGIONS if n == picked)
-
         st.button("Reconciliation vs UNICA", key="mapa_recon",
                    on_click=go_to, args=("mapa_recon",), use_container_width=True)
 
@@ -766,10 +748,14 @@ def render_mapa_recon():
 
     st.markdown(
         '<div style="color:#898781;font-size:12px;margin:0 0 14px;">'
-        'Both series measure Centro-Sul cane crush. UNICA counts its member '
-        'mills; MAPA counts every mill, and publishes ahead of UNICA &mdash; '
-        'so the gap is roughly the non-member share, and the trailing '
-        'fortnights are MAPA-only.</div>',
+        '<span style="display:inline-block;border:1px solid #d7d5cc;border-radius:3px;'
+        'padding:1px 6px;margin-right:8px;color:#4a5559;font-size:11px;">'
+        'Centro-Sul only</span>'
+        'Both series measure Centro-Sul cane crush &mdash; the region selector '
+        'does not apply here, because UNICA does not survey Norte or Nordeste. '
+        'UNICA counts its member mills; MAPA counts every mill, and publishes '
+        'ahead of UNICA &mdash; so the gap is roughly the non-member share, and '
+        'the trailing fortnights are MAPA-only.</div>',
         unsafe_allow_html=True,
     )
 
@@ -836,7 +822,57 @@ def render_mapa_recon():
         )
 
 
+def _region_control(page):
+    """Whether the region picker drives the page in front of you, and if not,
+    why not. It used to sit on the MAPA menu and go on applying itself
+    silently everywhere else, which is how a Norte selection could end up
+    looking at Centro-Sul numbers with nothing on screen saying so."""
+    if page == "mapa_menu" or page.startswith("mapa:"):
+        return True, ""
+    if page == "mapa_recon":
+        return False, ("Fixed to Centro-Sul. UNICA surveys Centre-South mills, "
+                       "so Norte and Nordeste have nothing to compare against.")
+    return False, "UNICA reports Centro-Sul only, so this page has one region."
+
+
+def render_sidebar(page):
+    active, why = _region_control(page)
+    level, region = _mapa_selected_region()
+    names = [n for n, _, _ in MAPA_REGIONS] + ["State"]
+    default = "State" if level == "state" else mapa_region_name(level, region)
+
+    with st.sidebar:
+        st.markdown(
+            '<div style="font-size:11px;letter-spacing:.09em;text-transform:uppercase;'
+            'color:#898781;margin:0 0 6px;">MAPA region</div>',
+            unsafe_allow_html=True,
+        )
+        picked = st.pills("Region", options=names, default=default,
+                          selection_mode="single", key="mapa_region_pick",
+                          label_visibility="collapsed", disabled=not active)
+        picked = picked or default
+
+        chosen = None
+        if picked == "State":
+            states = mapa_states(load_mapa())
+            current = region if level == "state" else states[0]
+            state = st.selectbox("State", states, index=states.index(current),
+                                 key="mapa_state_pick", disabled=not active)
+            chosen = ("state", state)
+        else:
+            chosen = next((lvl, code) for n, lvl, code in MAPA_REGIONS if n == picked)
+
+        # A disabled control must not quietly rewrite the selection it is
+        # showing, or leaving a MAPA page would reset the region you picked.
+        if active:
+            st.session_state.mapa_region = chosen
+        else:
+            st.caption(why)
+
+
 page = st.session_state.page
+render_sidebar(page)
+
 if page == "menu":
     render_menu()
 elif page == "mapa_menu":
