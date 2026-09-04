@@ -198,7 +198,7 @@ div[class*="_pillbar"] button[aria-checked="true"] {
 st.markdown(CSS, unsafe_allow_html=True)
 
 if "page" not in st.session_state:
-    st.session_state.page = "menu"
+    st.session_state.page = "home"
 
 df_wide_all = load_wide()
 registry = dataset_registry(df_wide_all)
@@ -299,6 +299,32 @@ def _latest_period_label(name):
     return f"{r['period']} {year_cols[-1]}"
 
 
+def render_home():
+    left, center, right = st.columns([1, 2, 1])
+    with center:
+        st.markdown(
+            '<div style="text-align:center;"><div class="unica-header-menu">'
+            '<h1>Brazil</h1></div></div>',
+            unsafe_allow_html=True,
+        )
+        unica_at = datetime.fromtimestamp(os.path.getmtime(DATA_PATH)).strftime("%d %b %Y")
+        mapa_at = datetime.fromtimestamp(os.path.getmtime(MAPA_PATH)).strftime("%d %b %Y")
+        st.markdown(
+            f'<div style="text-align:center;color:#898781;font-size:12px;'
+            f'margin:10px 0 18px;">UNICA updated {unica_at} &nbsp;·&nbsp; '
+            f'MAPA updated {mapa_at}</div>',
+            unsafe_allow_html=True,
+        )
+
+        st.button("UNICA", key="home_unica", on_click=go_to, args=("menu",),
+                   use_container_width=True)
+        with st.container(key="mapa_entry"):
+            st.button("MAPA", key="home_mapa", on_click=go_to, args=("mapa_menu",),
+                       use_container_width=True)
+            st.button("MAPA vs UNICA", key="home_recon", on_click=go_to,
+                       args=("mapa_recon",), use_container_width=True)
+
+
 def render_menu():
     left, center, right = st.columns([1, 2, 1])
     with center:
@@ -318,6 +344,8 @@ def render_menu():
             unsafe_allow_html=True,
         )
 
+        st.button("← Back", key="menu_back", on_click=go_to, args=("home",))
+
         st.button("Overview", key="menu_Overview", on_click=go_to, args=("Overview",),
                    use_container_width=True)
         col_left, col_right = st.columns(2)
@@ -333,10 +361,6 @@ def render_menu():
                 label = item if not disabled else f"{item} (coming soon)"
                 st.button(label, key=f"menu_{item}", disabled=disabled,
                            on_click=go_to, args=(item,), use_container_width=True)
-
-        with st.container(key="mapa_entry"):
-            st.button("MAPA — all Brazilian mills, incl. stocks", key="menu_mapa",
-                       on_click=go_to, args=("mapa_menu",), use_container_width=True)
 
 
 def render_overview():
@@ -606,6 +630,10 @@ def _mapa_selected_region():
     return st.session_state.get("mapa_region", ("country", "BR"))
 
 
+_MAPA_GROUP_HEAD = ('<div style="color:#1e3a5f;font-size:13px;font-weight:600;'
+                    'margin:14px 0 6px;">{label}</div>')
+
+
 def render_mapa_menu():
     mapa = load_mapa()
     left, center, right = st.columns([1, 2, 1])
@@ -616,25 +644,35 @@ def render_mapa_menu():
         )
         updated = datetime.fromtimestamp(os.path.getmtime(MAPA_PATH)).strftime("%d %b %Y, %H:%M")
         st.markdown(
-            f'<div style="text-align:center;color:#898781;font-size:12px;margin:10px 0 6px;">'
-            f'SAPCANA &mdash; all Brazilian mills &nbsp;·&nbsp; Data last updated {updated}</div>',
+            f'<div style="text-align:center;color:#898781;font-size:12px;margin:10px 0 18px;">'
+            f'Data last updated {updated}</div>',
             unsafe_allow_html=True,
         )
 
-        st.button("← UNICA", key="mapa_back", on_click=go_to, args=("menu",))
+        st.button("← Back", key="mapa_back", on_click=go_to, args=("home",))
 
-        st.button("Reconciliation vs UNICA", key="mapa_recon",
-                   on_click=go_to, args=("mapa_recon",), use_container_width=True)
-
-        for group, datasets in MAPA_GROUPS.items():
-            st.markdown(
-                f'<div style="color:#1e3a5f;font-size:13px;font-weight:600;'
-                f'margin:14px 0 6px;">{group}</div>',
-                unsafe_allow_html=True,
-            )
-            for ds in datasets:
+        def _group(name):
+            for ds in MAPA_GROUPS[name]:
                 st.button(mapa_label(ds), key=f"mapa_menu_{ds}",
                            on_click=go_to_mapa, args=(ds,), use_container_width=True)
+
+        # Headed "Totals", not "Production": each grade column below opens with
+        # its own Production button, and two different things under one word
+        # on one screen is a coin toss for the reader.
+        st.markdown(_MAPA_GROUP_HEAD.format(label="Totals"), unsafe_allow_html=True)
+        _group("Production")
+
+        # Anhydrous and hydrous carry the same seven series each, so the two
+        # columns line up row for row - production against production, stock
+        # against stock - and the grades read as a pair rather than as one
+        # list after another.
+        col_left, col_right = st.columns(2)
+        with col_left:
+            st.markdown(_MAPA_GROUP_HEAD.format(label="Anhydrous"), unsafe_allow_html=True)
+            _group("Anhydrous")
+        with col_right:
+            st.markdown(_MAPA_GROUP_HEAD.format(label="Hydrous"), unsafe_allow_html=True)
+            _group("Hydrous")
 
 
 def render_mapa_dataset(dataset):
@@ -760,22 +798,9 @@ def render_mapa_recon():
     with st.container(key="dataset_header"):
         col_back, col_title, col_spacer = st.columns([1, 5, 1], vertical_alignment="center")
         with col_back:
-            st.button("← Back", on_click=go_to, args=("mapa_menu",))
+            st.button("← Back", on_click=go_to, args=("home",))
         with col_title:
-            st.markdown("<h1>Reconciliation vs UNICA</h1>", unsafe_allow_html=True)
-
-    st.markdown(
-        '<div style="color:#898781;font-size:12px;margin:0 0 14px;">'
-        '<span style="display:inline-block;border:1px solid #d7d5cc;border-radius:3px;'
-        'padding:1px 6px;margin-right:8px;color:#4a5559;font-size:11px;">'
-        'Centro-Sul only</span>'
-        'Both series measure Centro-Sul cane crush &mdash; the region selector '
-        'does not apply here, because UNICA does not survey Norte or Nordeste. '
-        'UNICA counts its member mills; MAPA counts every mill, and publishes '
-        'ahead of UNICA &mdash; so the gap is roughly the non-member share, and '
-        'the trailing fortnights are MAPA-only.</div>',
-        unsafe_allow_html=True,
-    )
+            st.markdown("<h1>MAPA vs UNICA</h1>", unsafe_allow_html=True)
 
     _render_source_comparison()
 
@@ -850,6 +875,8 @@ def _region_control(page):
     if page == "mapa_recon":
         return False, ("Fixed to Centro-Sul. UNICA surveys Centre-South mills, "
                        "so Norte and Nordeste have nothing to compare against.")
+    if page == "home":
+        return False, "Applies to the MAPA series."
     return False, "UNICA reports Centro-Sul only, so this page has one region."
 
 
@@ -891,7 +918,9 @@ def render_sidebar(page):
 page = st.session_state.page
 render_sidebar(page)
 
-if page == "menu":
+if page == "home":
+    render_home()
+elif page == "menu":
     render_menu()
 elif page == "mapa_menu":
     render_mapa_menu()
