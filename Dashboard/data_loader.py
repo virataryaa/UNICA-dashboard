@@ -123,3 +123,65 @@ def mapa_slice(df, level, region, dataset):
     if keep.any():
         sub = sub.loc[: keep[keep].index.max()]
     return sub[["Dataset", "Kind", "Period"] + years].reset_index(drop=True), kind
+
+# --- UNICA vs MAPA, on a real-date axis -----------------------------------
+# The two masters share the 24-fortnight Apr-Mar grid, but a comparison that
+# runs across seasons needs a continuous axis, so each (safra, period) is
+# resolved to the calendar date the fortnight closes on. Apr-Dec sit in the
+# opening year, Jan-Mar in the closing one.
+
+# UNICA name, MAPA name, unit. Anhydrous and hydrous are deliberately absent:
+# UNICA publishes them monthly against MAPA's fortnights, so they cannot be
+# compared on this axis without resampling one side.
+SOURCE_PAIRS = [
+    ("Sugarcane Crush", "Cana", "MT"),
+    ("Sugar", "Acucar", "MT"),
+    ("Ethanol", "Etanol Total", "m3"),
+]
+
+
+def period_date(safra, period):
+    """('18/19', 'Apr (1)') -> date(2018, 4, 15). Returns None for anything
+    off the fortnightly grid, so callers can skip UNICA's monthly series."""
+    import calendar
+    from datetime import date
+    try:
+        month, half = period.split(" (")
+        half = int(half.rstrip(")"))
+    except (ValueError, AttributeError):
+        return None
+    if month not in MAPA_MONTHS:
+        return None
+    num = MAPA_MONTHS.index(month) + 4
+    year = 2000 + int(safra[:2])
+    if num > 12:
+        num -= 12
+        year += 1
+    day = 15 if half == 1 else calendar.monthrange(year, num)[1]
+    return date(year, num, day)
+
+
+def source_compare_frame(unica_wide, mapa_wide, unica_name, mapa_name):
+    """One tidy frame of date / unica / mapa for a single product, covering
+    every season either source publishes. Periods missing on one side stay as
+    NaN rather than being dropped, so the charts show where MAPA's coverage
+    starts rather than silently closing the gap."""
+    u = dataset_slice(unica_wide, unica_name).set_index("Period")
+    m, _ = mapa_slice(mapa_wide, "region", "CS", mapa_name)
+    m = m.set_index("Period")
+    uy, my = year_columns(unica_wide), mapa_year_columns(mapa_wide)
+
+    rows = []
+    for safra in sorted(set(uy) | set(my), key=lambda s: int(s[:2])):
+        for period in MAPA_PERIODS:
+            d = period_date(safra, period)
+            if d is None:
+                continue
+            uv = u[safra].get(period) if safra in uy and period in u.index else None
+            mv = m[safra].get(period) if safra in my and period in m.index else None
+            if pd.isna(uv) and pd.isna(mv):
+                continue
+            rows.append({"date": d, "safra": safra, "period": period,
+                         "unica": pd.to_numeric(uv, errors="coerce"),
+                         "mapa": pd.to_numeric(mv, errors="coerce")})
+    return pd.DataFrame(rows)

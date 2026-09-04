@@ -378,3 +378,97 @@ def ytd_comparison(df_wide, year_cols, kind="flow", title=None, height=None):
     layout = _layout(f"{base_title} ({value_col})", height)
     fig.update_layout(showlegend=False, **layout)
     return fig
+
+# --- UNICA vs MAPA ---------------------------------------------------------
+# Two sources reading one crop, so both charts below are two-series and use
+# the same slots throughout: UNICA blue, MAPA orange. Colour follows the
+# source, never the product, so the pair reads the same on every panel.
+
+SOURCE_U = SERIES["blue"]
+SOURCE_M = SERIES["orange"]
+
+
+def source_compare_line(frame, title, unit, height=250):
+    """Both sources on one continuous date axis. Gaps are left open rather
+    than bridged - MAPA simply has no print before 18/19, and a joined line
+    there would invent coverage that does not exist."""
+    fig = go.Figure()
+    for col, name, colour in (("unica", "UNICA", SOURCE_U),
+                              ("mapa", "MAPA (Centro-Sul)", SOURCE_M)):
+        fig.add_trace(go.Scatter(
+            x=frame["date"], y=frame[col], name=name, mode="lines",
+            connectgaps=False, line=dict(color=colour, width=2),
+            hovertemplate=name + ": %{y:,.0f}<extra></extra>",
+        ))
+    layout = _layout(f"{title} ({unit})", height=height)
+    layout["margin"] = dict(l=64, r=16, t=46, b=36)
+    layout["hovermode"] = "x unified"
+    layout["legend"] = dict(orientation="h", yanchor="bottom", y=1.0,
+                            xanchor="right", x=1, bgcolor="rgba(0,0,0,0)")
+    fig.update_layout(**layout)
+    return fig
+
+
+def source_compare_scatter(frame, title, unit, height=300):
+    """MAPA against UNICA for one product. The dashed line is parity, so the
+    eye reads the spread off it directly; the solid line is the least-squares
+    fit, and the two only diverge where one source runs consistently high."""
+    d = frame.dropna(subset=["unica", "mapa"])
+    fig = go.Figure()
+    layout = _layout(title, height=height)
+    layout["margin"] = dict(l=62, r=16, t=46, b=44)
+    layout["showlegend"] = False
+
+    if len(d) < 2:
+        layout["annotations"] = [dict(
+            text="Not enough paired periods in range", showarrow=False,
+            xref="paper", yref="paper", x=0.5, y=0.5,
+            font=dict(color=MUTED, size=12))]
+        fig.update_layout(**layout)
+        return fig
+
+    hi = float(max(d["unica"].max(), d["mapa"].max())) * 1.05
+    fig.add_trace(go.Scatter(x=[0, hi], y=[0, hi], mode="lines", hoverinfo="skip",
+                             line=dict(color=GRID, width=1, dash="dash")))
+    slope, intercept = np.polyfit(d["mapa"], d["unica"], 1)
+    fig.add_trace(go.Scatter(x=[0, hi], y=[intercept, slope * hi + intercept],
+                             mode="lines", hoverinfo="skip",
+                             line=dict(color=SOURCE_M, width=2)))
+    fig.add_trace(go.Scatter(
+        x=d["mapa"], y=d["unica"], mode="markers",
+        marker=dict(color=SOURCE_U, size=7, opacity=0.55,
+                    line=dict(color=SURFACE, width=1)),
+        customdata=d[["safra", "period"]].values,
+        hovertemplate=("%{customdata[0]} %{customdata[1]}<br>"
+                       "MAPA %{x:,.0f}<br>UNICA %{y:,.0f}<extra></extra>"),
+    ))
+
+    r = float(d["unica"].corr(d["mapa"]))
+    layout["annotations"] = [dict(
+        text=f"R&sup2; {r * r:.4f} &nbsp; n {len(d)}", showarrow=False,
+        xref="paper", yref="paper", x=0.03, y=0.97,
+        xanchor="left", yanchor="top", font=dict(color=MUTED, size=11))]
+    layout["xaxis"] = dict(gridcolor=GRID, linecolor=GRID, range=[0, hi],
+                           tickfont=dict(color=MUTED), tickformat=",.0f",
+                           title=dict(text=f"MAPA ({unit})", font=dict(color=MUTED, size=11)))
+    layout["yaxis"] = dict(gridcolor=GRID, linecolor=GRID, range=[0, hi],
+                           tickfont=dict(color=MUTED), tickformat=",.0f",
+                           title=dict(text=f"UNICA ({unit})", font=dict(color=MUTED, size=11)))
+    fig.update_layout(**layout)
+    return fig
+
+
+def source_stats(frame):
+    """Correlation, fitted slope and the totals behind them, for one product
+    over whatever range is selected."""
+    d = frame.dropna(subset=["unica", "mapa"])
+    if len(d) < 2:
+        return None
+    r = float(d["unica"].corr(d["mapa"]))
+    slope = float(np.polyfit(d["mapa"], d["unica"], 1)[0])
+    us, ms = float(d["unica"].sum()), float(d["mapa"].sum())
+    gap = (us / ms - 1) * 100 if ms else None
+    per = (d["unica"] - d["mapa"]).abs() / d["mapa"].abs()
+    return {"n": len(d), "r": r, "r2": r * r, "slope": slope,
+            "unica": us, "mapa": ms, "gap_pct": gap,
+            "mean_abs_pct": float(per[np.isfinite(per)].mean() * 100)}

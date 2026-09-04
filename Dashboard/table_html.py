@@ -271,3 +271,44 @@ def recon_table_html(rows, unit=""):
     </table>
     </div>
     """)
+
+def source_stats_table_html(rows):
+    """Per-product agreement over the selected range. The gap carries the bar
+    because it is the number being judged; r and the slope sit beside it as
+    the evidence for how tightly the two sources track."""
+    body = []
+    for r in rows:
+        st = r["stats"]
+        if st is None:
+            body.append(
+                f'<tr><td class="season-col">{r["label"]}</td>'
+                f'<td class="count-col">0</td>'
+                f'<td class="note-col" colspan="6">Not enough paired periods in range</td></tr>'
+            )
+            continue
+        body.append(
+            f'<tr>'
+            f'<td class="season-col">{r["label"]}</td>'
+            f'<td class="count-col">{st["n"]}</td>'
+            f'<td class="unica-col">{st["r"]:.4f}</td>'
+            f'<td class="unica-col">{st["slope"]:.3f}</td>'
+            f'<td class="unica-col">{_fmt(st["unica"], r["unit"])}</td>'
+            f'<td class="mapa-col">{_fmt(st["mapa"], r["unit"])}</td>'
+            f'<td class="bar-cell">{_bar_cell(st["gap_pct"], scale=2)}</td>'
+            f'<td class="count-col">{st["mean_abs_pct"]:.2f}%</td>'
+            f'</tr>'
+        )
+
+    return _flatten(f"""
+    {_RECON_STYLE}
+    <div class="mapa-recon-wrap">
+    <table class="mapa-recon">
+      <thead><tr>
+        <th class="season-col">Product</th><th>Periods</th>
+        <th>r</th><th>Slope</th><th>UNICA</th><th>MAPA</th>
+        <th>Gap %</th><th>Mean abs gap</th>
+      </tr></thead>
+      <tbody>{''.join(body)}</tbody>
+    </table>
+    </div>
+    """)

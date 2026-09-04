@@ -6,14 +6,16 @@ import pandas as pd
 
 from data_loader import (load_wide, year_columns, dataset_slice, dataset_registry, DATA_PATH,
                           load_mapa, mapa_slice, mapa_states, mapa_year_columns,
-                          MAPA_GROUPS, MAPA_REGIONS, MAPA_PATH)
+                          MAPA_GROUPS, MAPA_REGIONS, MAPA_PATH,
+                          SOURCE_PAIRS, source_compare_frame)
 from charts import (monthly_comparison, cumulative_forecast,
                      min_max_avg, summary_table, ytd_comparison, overview_row,
                      cumulative_ratio_stats, remaining_periods, default_ytd_yoy,
                      project_ytd_method, project_proportions_method,
-                     project_manual_per_period, project_manual_yearly)
+                     project_manual_per_period, project_manual_yearly,
+                     source_compare_line, source_compare_scatter, source_stats)
 from table_html import (raw_table_html, summary_table_html, overview_table_html,
-                         recon_table_html)
+                         recon_table_html, source_stats_table_html)
 
 st.set_page_config(page_title="UNICA: Brazil", layout="wide")
 
@@ -656,6 +658,106 @@ def render_mapa_dataset(dataset):
     _render_panels(df_wide, year_cols, kind, title, mapa_unit(dataset))
 
 
+SOURCE_LABELS = {"Sugarcane Crush": "Cane crush", "Sugar": "Sugar",
+                 "Ethanol": "Ethanol (total)"}
+
+
+@st.cache_data(show_spinner=False)
+def _source_frames():
+    unica, mapa = load_wide(), load_mapa()
+    return {u: source_compare_frame(unica, mapa, u, m) for u, m, _ in SOURCE_PAIRS}
+
+
+def _render_source_comparison():
+    """UNICA against MAPA Centro-Sul across the whole record, over whatever
+    stretch the range control is set to.
+
+    Anhydrous and hydrous are left out on purpose: UNICA publishes those two
+    monthly against MAPA's fortnights, so they cannot share this axis without
+    resampling one side into the other."""
+    frames = _source_frames()
+    dates = sorted({d for f in frames.values() for d in f["date"]})
+    if len(dates) < 2:
+        st.info("No overlapping periods between the two sources.")
+        return
+    dmin, dmax = dates[0], dates[-1]
+    safras = sorted({s for f in frames.values() for s in f["safra"]},
+                    key=lambda s: int(s[:2]))
+
+    # Clamped every run, not just on first use: the range outlives the data it
+    # was picked against, so an ingest that extends or trims the record would
+    # otherwise leave a stored range outside the axis, which both widgets
+    # below reject outright.
+    stored = st.session_state.get("recon_slider") or (dmin, dmax)
+    lo = min(max(stored[0], dmin), dmax)
+    hi = min(max(stored[1], dmin), dmax)
+    if hi < lo:
+        lo, hi = dmin, dmax
+    if (lo, hi) != tuple(stored):
+        st.session_state.recon_slider = (lo, hi)
+
+    # Both jump controls carry the current range in their key, so each rerun
+    # rebuilds them fresh. Without that the pill would stay selected and keep
+    # snapping the range back every time the slider moved.
+    col_cal, col_pills = st.columns([1.1, 2.4], vertical_alignment="bottom")
+    with col_cal:
+        cal = st.date_input("From / to", value=(lo, hi), min_value=dmin,
+                            max_value=dmax, key=f"recon_cal_{lo}_{hi}")
+    with col_pills:
+        picked = st.pills("Season", options=["All"] + safras, default=None,
+                          selection_mode="single", label_visibility="collapsed",
+                          key=f"recon_pill_{lo}_{hi}")
+
+    new_range = None
+    if picked == "All":
+        new_range = (dmin, dmax)
+    elif picked:
+        got = [d for f in frames.values()
+               for d, s in zip(f["date"], f["safra"]) if s == picked]
+        if got:
+            new_range = (min(got), max(got))
+    elif isinstance(cal, (tuple, list)) and len(cal) == 2:
+        if (cal[0], cal[1]) != (lo, hi):
+            new_range = (cal[0], cal[1])
+
+    if new_range and new_range != (lo, hi):
+        st.session_state.recon_slider = new_range
+        st.rerun()
+
+    lo, hi = st.slider("Range", min_value=dmin, max_value=dmax,
+                       key="recon_slider", format="MMM YYYY",
+                       label_visibility="collapsed")
+
+    lo_ts, hi_ts = pd.Timestamp(lo), pd.Timestamp(hi)
+    selected, stat_rows = {}, []
+    for unica_name, _mapa_name, unit in SOURCE_PAIRS:
+        f = frames[unica_name]
+        when = pd.to_datetime(f["date"])
+        sel = f[(when >= lo_ts) & (when <= hi_ts)]
+        selected[unica_name] = sel
+        stat_rows.append({"label": SOURCE_LABELS[unica_name], "unit": unit,
+                          "stats": source_stats(sel)})
+
+    for unica_name, _mapa_name, unit in SOURCE_PAIRS:
+        st.plotly_chart(
+            source_compare_line(selected[unica_name], SOURCE_LABELS[unica_name], unit),
+            use_container_width=True, key=f"recon_line_{unica_name}")
+
+    st.markdown(
+        '<div style="color:#898781;font-size:12px;margin:10px 0 2px;">'
+        'MAPA on the horizontal, UNICA on the vertical, one dot per paired '
+        'fortnight. The dashed line is parity; the solid line is the fit.</div>',
+        unsafe_allow_html=True,
+    )
+    for col, (unica_name, _mapa_name, unit) in zip(st.columns(len(SOURCE_PAIRS)), SOURCE_PAIRS):
+        with col:
+            st.plotly_chart(
+                source_compare_scatter(selected[unica_name], SOURCE_LABELS[unica_name], unit),
+                use_container_width=True, key=f"recon_scatter_{unica_name}")
+
+    st.markdown(source_stats_table_html(stat_rows), unsafe_allow_html=True)
+
+
 def render_mapa_recon():
     with st.container(key="dataset_header"):
         col_back, col_title, col_spacer = st.columns([1, 5, 1], vertical_alignment="center")
@@ -670,6 +772,13 @@ def render_mapa_recon():
         'mills; MAPA counts every mill, and publishes ahead of UNICA &mdash; '
         'so the gap is roughly the non-member share, and the trailing '
         'fortnights are MAPA-only.</div>',
+        unsafe_allow_html=True,
+    )
+
+    _render_source_comparison()
+
+    st.markdown(
+        '<h2 style="font-size:16px;margin:26px 0 4px;">Cane, season by season</h2>',
         unsafe_allow_html=True,
     )
 
