@@ -299,6 +299,21 @@ def _latest_period_label(name):
     return f"{r['period']} {year_cols[-1]}"
 
 
+def _mapa_latest_period_label():
+    """The last fortnight MAPA has actually printed, read off the Brasil cane
+    series - the first row of any report, so nothing is published without it."""
+    mapa = load_mapa()
+    sub, _ = mapa_slice(mapa, "country", "BR", "Cana")
+    if sub.empty:
+        return None
+    years = mapa_year_columns(sub)
+    for year in reversed(years):
+        got = sub.loc[sub[year].notna(), "Period"]
+        if not got.empty:
+            return f"{got.iloc[-1]} {year}"
+    return None
+
+
 def render_home():
     left, center, right = st.columns([1, 2, 1])
     with center:
@@ -309,10 +324,21 @@ def render_home():
         )
         unica_at = datetime.fromtimestamp(os.path.getmtime(DATA_PATH)).strftime("%d %b %Y")
         mapa_at = datetime.fromtimestamp(os.path.getmtime(MAPA_PATH)).strftime("%d %b %Y")
+        # When a file was pulled and how far the data in it reaches are two
+        # different questions, and it is the second one that decides whether a
+        # number is worth looking at today.
+        rows = [("UNICA", unica_at, _latest_period_label(BIWEEKLY_DATASETS[0])),
+                ("MAPA", mapa_at, _mapa_latest_period_label())]
+        lines = "".join(
+            f'<div style="margin:2px 0;"><span style="color:#0b0b0b;'
+            f'font-weight:600;">{name}</span> &nbsp;through '
+            f'<span style="color:#0b0b0b;">{through or "&mdash;"}</span>'
+            f'&nbsp;·&nbsp; pulled {when}</div>'
+            for name, when, through in rows
+        )
         st.markdown(
             f'<div style="text-align:center;color:#898781;font-size:12px;'
-            f'margin:10px 0 18px;">UNICA updated {unica_at} &nbsp;·&nbsp; '
-            f'MAPA updated {mapa_at}</div>',
+            f'margin:10px 0 18px;">{lines}</div>',
             unsafe_allow_html=True,
         )
 
