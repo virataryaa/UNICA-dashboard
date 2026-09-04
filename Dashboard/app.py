@@ -677,6 +677,9 @@ def render_mapa_menu():
 
         st.button("← Back", key="mapa_back", on_click=go_to, args=("home",))
 
+        st.button("Overview", key="mapa_menu_overview", on_click=go_to,
+                   args=("mapa_overview",), use_container_width=True)
+
         def _group(name):
             for ds in MAPA_GROUPS[name]:
                 st.button(mapa_label(ds), key=f"mapa_menu_{ds}",
@@ -699,6 +702,99 @@ def render_mapa_menu():
         with col_right:
             st.markdown(_MAPA_GROUP_HEAD.format(label="Hydrous"), unsafe_allow_html=True)
             _group("Hydrous")
+
+
+# Grouped so each table holds one kind of number. Flows can be summed down
+# the season and stocks cannot, so the stock group's second table carries the
+# season average instead of a running total.
+MAPA_OVERVIEW_GROUPS = [
+    ("Production",
+     ["Cana", "Acucar", "Etanol Total", "Anidro Producao", "Hidratado Producao"],
+     "Cumulative"),
+    ("Movements",
+     ["Anidro Entradas", "Anidro Saidas Distrib", "Anidro Saidas M.Ext",
+      "Anidro Saidas Outras", "Hidratado Entradas", "Hidratado Saidas Distrib",
+      "Hidratado Saidas M.Ext", "Hidratado Saidas Outras"],
+     "Cumulative"),
+    ("Stocks",
+     ["Anidro Estoque E.Fisico", "Anidro Estoque E.Disp",
+      "Hidratado Estoque E.Fisico", "Hidratado Estoque E.Disp"],
+     "Season average"),
+]
+
+
+def mapa_full_label(dataset):
+    """Both grades share a table here, so unlike the menu the grade has to
+    stay on the label or the rows read as duplicates."""
+    for prefix, grade in (("Anidro ", "Anhydrous"), ("Hidratado ", "Hydrous")):
+        if dataset.startswith(prefix):
+            return f"{grade} {mapa_label(dataset).lower()}"
+    return mapa_label(dataset)
+
+
+def render_mapa_overview():
+    level, region = _mapa_selected_region()
+    region_name = mapa_region_name(level, region)
+
+    with st.container(key="dataset_header"):
+        col_back, col_title, col_spacer = st.columns([1, 5, 1], vertical_alignment="center")
+        with col_back:
+            st.button("← Back", on_click=go_to, args=("mapa_menu",))
+        with col_title:
+            st.markdown(f"<h1>Overview — {region_name}</h1>", unsafe_allow_html=True)
+
+    mapa = load_mapa()
+    # Every MAPA series sits on the one fortnightly axis, so a single picker
+    # drives all three groups - unlike UNICA, where the monthly series need
+    # their own. Cana carries the axis: it is the first row of any report.
+    ref, _ = mapa_slice(mapa, level, region, "Cana")
+    if ref.empty:
+        st.info(f"MAPA publishes nothing for {region_name}.")
+        return
+    years = mapa_year_columns(ref)
+    if len(years) < 2:
+        st.info("Not enough seasons to compare.")
+        return
+    live = ref.loc[ref[years[-1]].notna(), "Period"]
+    if live.empty:
+        st.info(f"No {years[-1]} readings yet for {region_name}.")
+        return
+    periods = live.tolist()
+    idx_by_period = dict(zip(periods, live.index.tolist()))
+
+    with st.container(key="mapa_overview_period_wrap"):
+        selected = st.pills("Period", options=periods, default=periods[-1],
+                            selection_mode="single", key="mapa_overview_period")
+    idx = idx_by_period[selected or periods[-1]]
+
+    for group_label, datasets, cum_label in MAPA_OVERVIEW_GROUPS:
+        standalone_rows, cumulative_rows, year_cols_ref = [], [], None
+        for ds in datasets:
+            df_wide, kind = mapa_slice(mapa, level, region, ds)
+            if df_wide.empty or idx not in df_wide.index:
+                continue
+            year_cols = mapa_year_columns(df_wide)
+            year_cols_ref = year_cols
+            r = overview_row(df_wide, year_cols, kind, idx=idx)
+            meta = {"name": mapa_full_label(ds), "unit": mapa_unit(ds), "period": r["period"]}
+            standalone_rows.append({**r["standalone"], **meta})
+            cumulative_rows.append({**r["cumulative"], **meta})
+        if not year_cols_ref:
+            continue
+        prev_year, current_year = year_cols_ref[-2], year_cols_ref[-1]
+        left, right = st.columns(2)
+        with left:
+            st.markdown(
+                overview_table_html(standalone_rows, f"{group_label} Comparison",
+                                     prev_year, current_year),
+                unsafe_allow_html=True,
+            )
+        with right:
+            st.markdown(
+                overview_table_html(cumulative_rows, f"{group_label} — {cum_label}",
+                                     prev_year, current_year),
+                unsafe_allow_html=True,
+            )
 
 
 def render_mapa_dataset(dataset):
@@ -896,7 +992,7 @@ def _region_control(page):
     why not. It used to sit on the MAPA menu and go on applying itself
     silently everywhere else, which is how a Norte selection could end up
     looking at Centro-Sul numbers with nothing on screen saying so."""
-    if page == "mapa_menu" or page.startswith("mapa:"):
+    if page in ("mapa_menu", "mapa_overview") or page.startswith("mapa:"):
         return True, ""
     if page == "mapa_recon":
         return False, ("Fixed to Centro-Sul. UNICA surveys Centre-South mills, "
@@ -950,6 +1046,8 @@ elif page == "menu":
     render_menu()
 elif page == "mapa_menu":
     render_mapa_menu()
+elif page == "mapa_overview":
+    render_mapa_overview()
 elif page == "mapa_recon":
     render_mapa_recon()
 elif page.startswith("mapa:"):
