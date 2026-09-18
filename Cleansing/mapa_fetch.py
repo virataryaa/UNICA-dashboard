@@ -73,14 +73,20 @@ def fetch_safra(session, safra):
 def main():
     only = sys.argv[1:] or SAFRAS
     session = requests.Session()
-    total = 0
+    total, failed = 0, []
     print(f"Downloading into {DUMP}")
     for safra in only:
         try:
             total += fetch_safra(session, safra)
         except Exception as exc:
+            failed.append(safra)
             print(f"  {safra}: FAILED - {type(exc).__name__}: {exc}")
     print(f"Done. {total} new file(s).")
+    # Non-zero on any failure so a caller can tell. gov.br drops connections
+    # from the ETG network for hours at a time, and a clean exit code here
+    # used to make that indistinguishable from "nothing new published".
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

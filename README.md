@@ -16,17 +16,22 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-To refresh MAPA (download new reports, rebuild the CSV, push):
+**To update and publish everything, double-click `update_all.bat`.** It
+downloads and rebuilds MAPA, checks UNICA, and pushes whichever of the two
+changed in one commit. Each source publishes on its own merits: gov.br being
+down, or a bad UNICA file, never holds back the other one.
+
+It refuses to run off `main` — Streamlit deploys only from `main`, so a push
+from anywhere else would report success while nothing went live. The commit
+names the two CSVs explicitly, so nothing else in the working tree can ride
+along into a data release. Pass `/nopause` to run it from Task Scheduler.
+
+The steps by hand, from the repo root:
 
 ```bash
-update_mapa.bat
-```
-
-Or the two steps by hand, from `Code/`:
-
-```bash
-python mapa_fetch.py              # all safras; add e.g. 2026-2027 to limit
-python mapa_ingest.py             # rebuilds Database/mapa_master.csv
+python Cleansing/mapa_fetch.py    # all safras; add e.g. 2026-2027 to limit
+python Cleansing/mapa_ingest.py   # rebuilds Database/mapa_master.csv
+python Cleansing/validate_csv.py  # checks Database/unica_master.csv
 ```
 
 `mapa_fetch.py` skips files already on disk, so a routine run pulls only the
@@ -39,9 +44,11 @@ to earlier fortnights flow through on the next run.
 ## Layout
 
 ```
-Code/
+update_all.bat         the one button: update + publish both sources
+Cleansing/
   mapa_fetch.py        scrape + download MAPA XLS from gov.br
   mapa_ingest.py       XLS dump -> Database/mapa_master.csv
+  validate_csv.py      schema checks on unica_master.csv
 Dashboard/
   app.py               pages, routing, sidebar
   charts.py            plotly builders + the stats behind them
@@ -50,10 +57,11 @@ Dashboard/
 Database/
   unica_master.csv     UNICA, published
   mapa_master.csv      MAPA, published
-  Mapa/data dump/      raw XLS, gitignored (~12 MB, 282 files)
-update_mapa.bat        fetch -> ingest -> push
-validate_csv.py        schema checks
+  Mapa/data dump/      raw XLS, gitignored (~12 MB, 283 files)
 ```
+
+`Dashboard/` and `Database/` must stay where they are: Streamlit Cloud runs
+`Dashboard/app.py`, and the app reads `../Database/`.
 
 ## Navigation
 
@@ -137,7 +145,7 @@ sheet's own header rows rather than by index; accents arrive mangled from
 `xlrd`, so header matching uses only ASCII-safe fragments (`Produ`, `ucar`,
 `E.F`).
 
-Everything below is handled in `Code/mapa_ingest.py`. Each one produced a
+Everything below is handled in `Cleansing/mapa_ingest.py`. Each one produced a
 visible, wrong number before it was.
 
 **1. Reports are cumulative, not fortnightly.**
@@ -226,17 +234,19 @@ stock series, and the Nordeste post-March tail.
   bucket — not an error.
 - **`use_container_width` is past its removal date** across the whole app. Still
   working; a Streamlit upgrade could break it broadly.
-- **`update_mapa.bat` is not on Task Scheduler.** MAPA refresh is manual.
+- **`update_all.bat` is not on Task Scheduler.** Refresh is manual; it takes
+  `/nopause` so it can be scheduled.
 - **gov.br is intermittently unreachable** from the ETG network — DNS resolves
   but TCP 443 times out, sometimes for hours. Other Brazilian sites are fine.
   Retry later rather than debugging the scraper.
 
 ## Data currency
 
-`mapa_master.csv` and `unica_master.csv` can drift apart — they are refreshed
-by separate processes, and only MAPA has a script in this repo. The app's front
+`mapa_master.csv` and `unica_master.csv` can drift apart. MAPA is downloaded
+by `update_all.bat`; **UNICA is not** — `unica_master.csv` is maintained by hand
+and the button only checks and publishes it. The app's front
 page shows how far each source reaches and when each was last pulled, which is
 the fastest way to spot a stale side.
 
-As of 2026-09-04: MAPA through `Aug (1) 26/27`; UNICA through `Jun (2) 26/27`,
-pulled 7 Aug — four fortnights behind.
+As of 2026-09-18: MAPA through `Aug (2) 26/27`; UNICA through `Jun (2) 26/27`,
+last edited 7 Aug — four fortnights behind.

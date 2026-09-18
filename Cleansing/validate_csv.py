@@ -1,6 +1,6 @@
 """Sanity-checks Database/unica_master.csv before it gets pushed.
 
-Run standalone: python validate_csv.py
+Run standalone: python Cleansing/validate_csv.py
 Exit code 0 = safe to push. Exit code 1 = problems found, do not push.
 """
 import sys
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-CSV_PATH = Path(__file__).resolve().parent / "Database" / "unica_master.csv"
+CSV_PATH = Path(__file__).resolve().parent.parent / "Database" / "unica_master.csv"
 
 BIWEEKLY_PERIODS = [
     "Apr (1)", "Apr (2)", "May (1)", "May (2)", "Jun (1)", "Jun (2)",
