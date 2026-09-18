@@ -16,15 +16,19 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-**To update and publish everything, double-click `update_all.bat`.** It
-downloads and rebuilds MAPA, checks UNICA, and pushes whichever of the two
-changed in one commit. Each source publishes on its own merits: gov.br being
-down, or a bad UNICA file, never holds back the other one.
+**Two buttons, one per source — double-click whichever you need:**
 
-It refuses to run off `main` — Streamlit deploys only from `main`, so a push
-from anywhere else would report success while nothing went live. The commit
-names the two CSVs explicitly, so nothing else in the working tree can ride
-along into a data release. Pass `/nopause` to run it from Task Scheduler.
+| Button | What it does |
+|---|---|
+| `Update MAPA.bat` | Downloads any new reports from gov.br, rebuilds `mapa_master.csv`, pushes it |
+| `Update UNICA.bat` | Checks `unica_master.csv` and pushes it. **Downloads nothing** — UNICA is kept by hand |
+
+Both refuse to run off `main` — Streamlit deploys only from `main`, so a push
+from anywhere else would report success while nothing went live. Each commit
+names its one CSV explicitly, so nothing else in the working tree can ride
+along into a data release. If gov.br is unreachable, `Update MAPA` warns and
+carries on with the reports already on disk. Pass `/nopause` to run either
+from Task Scheduler.
 
 The steps by hand, from the repo root:
 
@@ -44,7 +48,8 @@ to earlier fortnights flow through on the next run.
 ## Layout
 
 ```
-update_all.bat         the one button: update + publish both sources
+Update MAPA.bat        download + rebuild + publish MAPA
+Update UNICA.bat       check + publish UNICA
 Cleansing/
   mapa_fetch.py        scrape + download MAPA XLS from gov.br
   mapa_ingest.py       XLS dump -> Database/mapa_master.csv
@@ -234,8 +239,8 @@ stock series, and the Nordeste post-March tail.
   bucket — not an error.
 - **`use_container_width` is past its removal date** across the whole app. Still
   working; a Streamlit upgrade could break it broadly.
-- **`update_all.bat` is not on Task Scheduler.** Refresh is manual; it takes
-  `/nopause` so it can be scheduled.
+- **Neither button is on Task Scheduler.** Refresh is manual; both take
+  `/nopause` so they can be scheduled.
 - **gov.br is intermittently unreachable** from the ETG network — DNS resolves
   but TCP 443 times out, sometimes for hours. Other Brazilian sites are fine.
   Retry later rather than debugging the scraper.
@@ -243,8 +248,8 @@ stock series, and the Nordeste post-March tail.
 ## Data currency
 
 `mapa_master.csv` and `unica_master.csv` can drift apart. MAPA is downloaded
-by `update_all.bat`; **UNICA is not** — `unica_master.csv` is maintained by hand
-and the button only checks and publishes it. The app's front
+by `Update MAPA.bat`; **UNICA is not** — `unica_master.csv` is maintained by
+hand, and `Update UNICA.bat` only checks and publishes it. The app's front
 page shows how far each source reaches and when each was last pulled, which is
 the fastest way to spot a stale side.
 
